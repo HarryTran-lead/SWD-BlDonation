@@ -1,0 +1,6 @@
+@SWD_BLDONATION_HostAddress = http://localhost:5270
+
+GET {{SWD_BLDONATION_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
