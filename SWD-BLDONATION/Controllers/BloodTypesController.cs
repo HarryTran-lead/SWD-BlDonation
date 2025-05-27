@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SWD_BLDONATION.Models;
+using SWD_BLDONATION.Models.Generated;
 
 namespace SWD_BLDONATION.Controllers
 {

@@ -1,16 +1,25 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using SWD_BLDONATION.Models;
-
+using SWD_BLDONATION.Models.Generated;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
 
-// Thêm cấu hình DbContext ở đây
+// Thêm cấu hình DbContext
 builder.Services.AddDbContext<BloodDonationContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Thêm CORS policy
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173") // địa chỉ frontend
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -24,7 +33,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// Bật CORS trước Authorization
+app.UseCors("AllowFrontend");
+
 app.UseHttpsRedirection();
+app.UseStaticFiles();  
 app.UseAuthorization();
 app.MapControllers();
 app.Run();
