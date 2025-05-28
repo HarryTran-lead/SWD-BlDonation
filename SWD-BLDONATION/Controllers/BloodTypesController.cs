@@ -1,12 +1,11 @@
-﻿using System;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using SWD_BLDONATION.DTOs;
+using SWD_BLDONATION.DTOs.BloodTypeDTOs;
+using SWD_BLDONATION.Models.Generated;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SWD_BLDONATION.Models;
-using SWD_BLDONATION.Models.Generated;
 
 namespace SWD_BLDONATION.Controllers
 {
@@ -23,36 +22,50 @@ namespace SWD_BLDONATION.Controllers
 
         // GET: api/BloodTypes
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<BloodType>>> GetBloodTypes()
+        public async Task<ActionResult<IEnumerable<BloodTypeDto>>> GetBloodTypes()
         {
-            return await _context.BloodTypes.ToListAsync();
+            var bloodTypes = await _context.BloodTypes
+                .Select(bt => new BloodTypeDto
+                {
+                    BloodTypeId = bt.BloodTypeId,
+                    Name = bt.Name,
+                    RhFactor = bt.RhFactor
+                })
+                .ToListAsync();
+
+            return Ok(bloodTypes);
         }
 
         // GET: api/BloodTypes/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<BloodType>> GetBloodType(int id)
+        public async Task<ActionResult<BloodTypeDto>> GetBloodType(int id)
         {
-            var bloodType = await _context.BloodTypes.FindAsync(id);
+            var bloodType = await _context.BloodTypes
+                .Where(bt => bt.BloodTypeId == id)
+                .Select(bt => new BloodTypeDto
+                {
+                    BloodTypeId = bt.BloodTypeId,
+                    Name = bt.Name,
+                    RhFactor = bt.RhFactor
+                })
+                .FirstOrDefaultAsync();
 
             if (bloodType == null)
-            {
                 return NotFound();
-            }
 
-            return bloodType;
+            return Ok(bloodType);
         }
 
         // PUT: api/BloodTypes/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutBloodType(int id, BloodType bloodType)
+        public async Task<IActionResult> PutBloodType(int id, UpdateBloodTypeDto dto)
         {
-            if (id != bloodType.BloodTypeId)
-            {
-                return BadRequest();
-            }
+            var bloodType = await _context.BloodTypes.FindAsync(id);
+            if (bloodType == null)
+                return NotFound();
 
-            _context.Entry(bloodType).State = EntityState.Modified;
+            bloodType.Name = dto.Name;
+            bloodType.RhFactor = dto.RhFactor;
 
             try
             {
@@ -61,27 +74,35 @@ namespace SWD_BLDONATION.Controllers
             catch (DbUpdateConcurrencyException)
             {
                 if (!BloodTypeExists(id))
-                {
                     return NotFound();
-                }
                 else
-                {
                     throw;
-                }
             }
 
             return NoContent();
         }
 
         // POST: api/BloodTypes
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
-        public async Task<ActionResult<BloodType>> PostBloodType(BloodType bloodType)
+        public async Task<ActionResult<BloodTypeDto>> PostBloodType(CreateBloodTypeDto dto)
         {
+            var bloodType = new BloodType
+            {
+                Name = dto.Name,
+                RhFactor = dto.RhFactor
+            };
+
             _context.BloodTypes.Add(bloodType);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction("GetBloodType", new { id = bloodType.BloodTypeId }, bloodType);
+            var resultDto = new BloodTypeDto
+            {
+                BloodTypeId = bloodType.BloodTypeId,
+                Name = bloodType.Name,
+                RhFactor = bloodType.RhFactor
+            };
+
+            return CreatedAtAction(nameof(GetBloodType), new { id = bloodType.BloodTypeId }, resultDto);
         }
 
         // DELETE: api/BloodTypes/5
@@ -90,9 +111,7 @@ namespace SWD_BLDONATION.Controllers
         {
             var bloodType = await _context.BloodTypes.FindAsync(id);
             if (bloodType == null)
-            {
                 return NotFound();
-            }
 
             _context.BloodTypes.Remove(bloodType);
             await _context.SaveChangesAsync();
