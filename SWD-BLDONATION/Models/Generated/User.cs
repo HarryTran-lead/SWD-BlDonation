@@ -33,6 +33,12 @@ public partial class User
 
     public byte? StatusBit { get; set; }
 
+    public decimal? HeightCm { get; set; }
+
+    public decimal? WeightKg { get; set; }
+
+    public string? MedicalHistory { get; set; }
+
     public virtual ICollection<BlogPost> BlogPosts { get; set; } = new List<BlogPost>();
 
     public virtual BloodComponent? BloodComponent { get; set; }

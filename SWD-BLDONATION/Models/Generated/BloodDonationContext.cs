@@ -6,10 +6,6 @@ namespace SWD_BLDONATION.Models.Generated;
 
 public partial class BloodDonationContext : DbContext
 {
-    public BloodDonationContext()
-    {
-    }
-
     public BloodDonationContext(DbContextOptions<BloodDonationContext> options)
         : base(options)
     {
@@ -36,10 +32,6 @@ public partial class BloodDonationContext : DbContext
     public virtual DbSet<RequestMatch> RequestMatches { get; set; }
 
     public virtual DbSet<User> Users { get; set; }
-
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("Data Source=localhost\\SQLEXPRESS;Initial Catalog=BloodDonation;User ID=ad;Password=123;Encrypt=True;Trust Server Certificate=True");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -408,10 +400,16 @@ public partial class BloodDonationContext : DbContext
                 .HasMaxLength(255)
                 .IsUnicode(false)
                 .HasColumnName("email");
+            entity.Property(e => e.HeightCm)
+                .HasColumnType("decimal(5, 2)")
+                .HasColumnName("height_cm");
             entity.Property(e => e.Identification)
                 .HasMaxLength(20)
                 .IsUnicode(false)
                 .HasColumnName("identification");
+            entity.Property(e => e.MedicalHistory)
+                .HasColumnType("text")
+                .HasColumnName("medical_history");
             entity.Property(e => e.Name)
                 .HasMaxLength(255)
                 .IsUnicode(false)
@@ -430,6 +428,9 @@ public partial class BloodDonationContext : DbContext
                 .HasMaxLength(255)
                 .IsUnicode(false)
                 .HasColumnName("user_name");
+            entity.Property(e => e.WeightKg)
+                .HasColumnType("decimal(5, 2)")
+                .HasColumnName("weight_kg");
 
             entity.HasOne(d => d.BloodComponent).WithMany(p => p.Users)
                 .HasForeignKey(d => d.BloodComponentId)
