@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using SWD_BLDONATION.DTOs;
 using SWD_BLDONATION.DTOs.UserDTOs;
 using SWD_BLDONATION.Models.Generated;
 using Microsoft.Extensions.Logging;
@@ -39,8 +38,11 @@ namespace SWD_BLDONATION.Controllers
                     DateOfBirth = u.DateOfBirth,
                     Address = u.Address,
                     Identification = u.Identification,
-                    StatusBit = (u.StatusBit ?? 0) == 1,
-                    RoleBit = u.RoleBit ?? 0
+                    StatusBit = u.StatusBit ?? 1,
+                    RoleBit = u.RoleBit ?? 0,
+                    HeightCm = u.HeightCm,
+                    WeightKg = u.WeightKg,
+                    MedicalHistory = u.MedicalHistory
                 })
                 .ToListAsync();
 
@@ -63,8 +65,11 @@ namespace SWD_BLDONATION.Controllers
                     DateOfBirth = u.DateOfBirth,
                     Address = u.Address,
                     Identification = u.Identification,
-                    StatusBit = (u.StatusBit ?? 0) == 1,
-                    RoleBit = u.RoleBit ?? 0
+                    StatusBit = u.StatusBit ?? 1,
+                    RoleBit = u.RoleBit ?? 0,
+                    HeightCm = u.HeightCm,
+                    WeightKg = u.WeightKg,
+                    MedicalHistory = u.MedicalHistory
                 })
                 .FirstOrDefaultAsync();
 
@@ -83,23 +88,12 @@ namespace SWD_BLDONATION.Controllers
 
             string? email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email;
             string? identification = string.IsNullOrWhiteSpace(dto.Identification) ? null : dto.Identification;
-            string? name = string.IsNullOrWhiteSpace(dto.Name) ? null : dto.Name;
-            string? phone = string.IsNullOrWhiteSpace(dto.Phone) ? null : dto.Phone;
-            string? address = string.IsNullOrWhiteSpace(dto.Address) ? null : dto.Address;
 
-            if (email != null)
-            {
-                bool existsEmail = await _context.Users.AnyAsync(u => u.Email == email && !u.IsDeleted);
-                if (existsEmail)
-                    return BadRequest(new { message = "Email đã tồn tại." });
-            }
+            if (email != null && await _context.Users.AnyAsync(u => u.Email == email && !u.IsDeleted))
+                return BadRequest(new { message = "Email đã tồn tại." });
 
-            if (identification != null)
-            {
-                bool existsIdentification = await _context.Users.AnyAsync(u => u.Identification == identification && !u.IsDeleted);
-                if (existsIdentification)
-                    return BadRequest(new { message = "Identification đã tồn tại." });
-            }
+            if (identification != null && await _context.Users.AnyAsync(u => u.Identification == identification && !u.IsDeleted))
+                return BadRequest(new { message = "Identification đã tồn tại." });
 
             var user = new User
             {
@@ -107,13 +101,18 @@ namespace SWD_BLDONATION.Controllers
                 Password = dto.Password,
                 Email = email,
                 Identification = identification,
-                Name = name,
-                Phone = phone,
+                Name = dto.Name,
+                Phone = dto.Phone,
                 DateOfBirth = dto.DateOfBirth,
-                Address = address,
-                StatusBit = 1,
+                Address = dto.Address,
+                StatusBit = 1, // mặc định Active
                 IsDeleted = false,
-                RoleBit = dto.RoleBit ?? 0
+                RoleBit = dto.RoleBit ?? 0,
+                BloodTypeId = dto.BloodTypeId,
+                BloodComponentId = dto.BloodComponentId,
+                HeightCm = dto.HeightCm,
+                WeightKg = dto.WeightKg,
+                MedicalHistory = dto.MedicalHistory
             };
 
             _context.Users.Add(user);
@@ -123,18 +122,22 @@ namespace SWD_BLDONATION.Controllers
             {
                 UserId = user.UserId,
                 UserName = user.UserName,
-                Email = user.Email,
                 Name = user.Name,
+                Email = user.Email,
                 Phone = user.Phone,
                 DateOfBirth = user.DateOfBirth,
                 Address = user.Address,
                 Identification = user.Identification,
-                StatusBit = (user.StatusBit ?? 0) == 1,
-                RoleBit = user.RoleBit ?? 0
+                StatusBit = user.StatusBit ?? 1,
+                RoleBit = user.RoleBit ?? 0,
+                HeightCm = user.HeightCm,
+                WeightKg = user.WeightKg,
+                MedicalHistory = user.MedicalHistory
             };
 
             return CreatedAtAction(nameof(GetUser), new { id = user.UserId }, result);
         }
+
 
         // PUT: api/Users/5
         [HttpPut("{id}")]
@@ -157,6 +160,12 @@ namespace SWD_BLDONATION.Controllers
 
             if (dto.RoleBit.HasValue)
                 user.RoleBit = dto.RoleBit.Value;
+
+            user.BloodTypeId = dto.BloodTypeId ?? user.BloodTypeId;
+            user.BloodComponentId = dto.BloodComponentId ?? user.BloodComponentId;
+            user.HeightCm = dto.HeightCm ?? user.HeightCm;
+            user.WeightKg = dto.WeightKg ?? user.WeightKg;
+            user.MedicalHistory = dto.MedicalHistory ?? user.MedicalHistory;
 
             _context.Entry(user).State = EntityState.Modified;
 

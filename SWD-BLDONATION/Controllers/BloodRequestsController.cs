@@ -1,12 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using SWD_BLDONATION.Models;
+using AutoMapper;
 using SWD_BLDONATION.Models.Generated;
+using SWD_BLDONATION.DTOs.BloodRequestDTOs;
 
 namespace SWD_BLDONATION.Controllers
 {
@@ -15,44 +14,72 @@ namespace SWD_BLDONATION.Controllers
     public class BloodRequestsController : ControllerBase
     {
         private readonly BloodDonationContext _context;
+        private readonly IMapper _mapper;
 
-        public BloodRequestsController(BloodDonationContext context)
+        public BloodRequestsController(BloodDonationContext context, IMapper mapper)
         {
             _context = context;
+            _mapper = mapper;
         }
 
         // GET: api/BloodRequests
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<BloodRequest>>> GetBloodRequests()
+        public async Task<ActionResult<IEnumerable<BloodRequestDto>>> GetBloodRequests()
         {
-            return await _context.BloodRequests.ToListAsync();
+            var entities = await _context.BloodRequests.ToListAsync();
+            var dtos = _mapper.Map<List<BloodRequestDto>>(entities);
+            return Ok(dtos);
         }
 
         // GET: api/BloodRequests/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<BloodRequest>> GetBloodRequest(int id)
+        public async Task<ActionResult<BloodRequestDto>> GetBloodRequest(int id)
         {
-            var bloodRequest = await _context.BloodRequests.FindAsync(id);
-
-            if (bloodRequest == null)
+            var entity = await _context.BloodRequests.FindAsync(id);
+            if (entity == null)
             {
                 return NotFound();
             }
 
-            return bloodRequest;
+            var dto = _mapper.Map<BloodRequestDto>(entity);
+            return Ok(dto);
+        }
+
+        // POST: api/BloodRequests
+        [HttpPost]
+        public async Task<ActionResult<BloodRequestDto>> PostBloodRequest(CreateBloodRequestDto createDto)
+        {
+            var entity = _mapper.Map<BloodRequest>(createDto);
+            entity.CreatedAt = System.DateTime.UtcNow;
+            entity.Status = "pending";
+            entity.Fulfilled = false;
+
+            _context.BloodRequests.Add(entity);
+            await _context.SaveChangesAsync();
+
+            var dto = _mapper.Map<BloodRequestDto>(entity);
+            return CreatedAtAction(nameof(GetBloodRequest), new { id = dto.BloodRequestId }, dto);
         }
 
         // PUT: api/BloodRequests/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutBloodRequest(int id, BloodRequest bloodRequest)
+        public async Task<IActionResult> PutBloodRequest(int id, UpdateBloodRequestDto updateDto)
         {
-            if (id != bloodRequest.BloodRequestId)
+            if (id != updateDto.BloodRequestId)
             {
-                return BadRequest();
+                return BadRequest("ID không khớp");
             }
 
-            _context.Entry(bloodRequest).State = EntityState.Modified;
+            var entity = await _context.BloodRequests.FindAsync(id);
+            if (entity == null)
+            {
+                return NotFound();
+            }
+
+            // Map dữ liệu updateDto lên entity
+            _mapper.Map(updateDto, entity);
+
+            _context.Entry(entity).State = EntityState.Modified;
 
             try
             {
@@ -60,7 +87,7 @@ namespace SWD_BLDONATION.Controllers
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!BloodRequestExists(id))
+                if (!_context.BloodRequests.Any(e => e.BloodRequestId == id))
                 {
                     return NotFound();
                 }
@@ -73,36 +100,20 @@ namespace SWD_BLDONATION.Controllers
             return NoContent();
         }
 
-        // POST: api/BloodRequests
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPost]
-        public async Task<ActionResult<BloodRequest>> PostBloodRequest(BloodRequest bloodRequest)
-        {
-            _context.BloodRequests.Add(bloodRequest);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction("GetBloodRequest", new { id = bloodRequest.BloodRequestId }, bloodRequest);
-        }
-
         // DELETE: api/BloodRequests/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteBloodRequest(int id)
         {
-            var bloodRequest = await _context.BloodRequests.FindAsync(id);
-            if (bloodRequest == null)
+            var entity = await _context.BloodRequests.FindAsync(id);
+            if (entity == null)
             {
                 return NotFound();
             }
 
-            _context.BloodRequests.Remove(bloodRequest);
+            _context.BloodRequests.Remove(entity);
             await _context.SaveChangesAsync();
 
             return NoContent();
-        }
-
-        private bool BloodRequestExists(int id)
-        {
-            return _context.BloodRequests.Any(e => e.BloodRequestId == id);
         }
     }
 }

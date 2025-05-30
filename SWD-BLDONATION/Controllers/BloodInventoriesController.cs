@@ -1,12 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
+﻿using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using SWD_BLDONATION.Models;
+using SWD_BLDONATION.DTOs.BloodInventoryDTOs;
 using SWD_BLDONATION.Models.Generated;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace SWD_BLDONATION.Controllers
 {
@@ -15,44 +13,45 @@ namespace SWD_BLDONATION.Controllers
     public class BloodInventoriesController : ControllerBase
     {
         private readonly BloodDonationContext _context;
+        private readonly IMapper _mapper;
 
-        public BloodInventoriesController(BloodDonationContext context)
+        public BloodInventoriesController(BloodDonationContext context, IMapper mapper)
         {
             _context = context;
+            _mapper = mapper;
         }
 
         // GET: api/BloodInventories
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<BloodInventory>>> GetBloodInventories()
+        public async Task<ActionResult<IEnumerable<BloodInventoryDto>>> GetBloodInventories()
         {
-            return await _context.BloodInventories.ToListAsync();
+            var entities = await _context.BloodInventories.ToListAsync();
+            var dtos = _mapper.Map<IEnumerable<BloodInventoryDto>>(entities);
+            return Ok(dtos);
         }
 
         // GET: api/BloodInventories/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<BloodInventory>> GetBloodInventory(int id)
+        public async Task<ActionResult<BloodInventoryDto>> GetBloodInventory(int id)
         {
-            var bloodInventory = await _context.BloodInventories.FindAsync(id);
-
-            if (bloodInventory == null)
-            {
+            var entity = await _context.BloodInventories.FindAsync(id);
+            if (entity == null)
                 return NotFound();
-            }
 
-            return bloodInventory;
+            var dto = _mapper.Map<BloodInventoryDto>(entity);
+            return Ok(dto);
         }
 
         // PUT: api/BloodInventories/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutBloodInventory(int id, BloodInventory bloodInventory)
+        public async Task<IActionResult> PutBloodInventory(int id, [FromForm] UpdateBloodInventoryDto updateDto)
         {
-            if (id != bloodInventory.InventoryId)
-            {
-                return BadRequest();
-            }
+            var entity = await _context.BloodInventories.FindAsync(id);
+            if (entity == null)
+                return NotFound();
 
-            _context.Entry(bloodInventory).State = EntityState.Modified;
+            // Map dữ liệu từ DTO vào Entity
+            _mapper.Map(updateDto, entity);
 
             try
             {
@@ -61,40 +60,36 @@ namespace SWD_BLDONATION.Controllers
             catch (DbUpdateConcurrencyException)
             {
                 if (!BloodInventoryExists(id))
-                {
                     return NotFound();
-                }
                 else
-                {
                     throw;
-                }
             }
 
             return NoContent();
         }
 
         // POST: api/BloodInventories
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
-        public async Task<ActionResult<BloodInventory>> PostBloodInventory(BloodInventory bloodInventory)
+        public async Task<ActionResult<BloodInventoryDto>> PostBloodInventory([FromForm] CreateBloodInventoryDto createDto)
         {
-            _context.BloodInventories.Add(bloodInventory);
+            var entity = _mapper.Map<BloodInventory>(createDto);
+            _context.BloodInventories.Add(entity);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction("GetBloodInventory", new { id = bloodInventory.InventoryId }, bloodInventory);
+            var resultDto = _mapper.Map<BloodInventoryDto>(entity);
+
+            return CreatedAtAction(nameof(GetBloodInventory), new { id = entity.InventoryId }, resultDto);
         }
 
         // DELETE: api/BloodInventories/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteBloodInventory(int id)
         {
-            var bloodInventory = await _context.BloodInventories.FindAsync(id);
-            if (bloodInventory == null)
-            {
+            var entity = await _context.BloodInventories.FindAsync(id);
+            if (entity == null)
                 return NotFound();
-            }
 
-            _context.BloodInventories.Remove(bloodInventory);
+            _context.BloodInventories.Remove(entity);
             await _context.SaveChangesAsync();
 
             return NoContent();

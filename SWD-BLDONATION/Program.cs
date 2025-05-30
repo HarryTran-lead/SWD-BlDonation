@@ -1,4 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using AutoMapper;
+using Microsoft.EntityFrameworkCore;
+using SWD_BLDONATION.MappingProfiles;
 using SWD_BLDONATION.Models.Generated;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,6 +11,14 @@ builder.Services.AddControllers();
 // Thêm cấu hình DbContext
 builder.Services.AddDbContext<BloodDonationContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Đăng ký AutoMapper (bắt buộc để inject IMapper)
+builder.Services.AddAutoMapper(typeof(Program));
+
+// Đăng ký AutoMapper cho toàn bộ profile
+
+builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
 
 // Thêm CORS policy
 builder.Services.AddCors(options =>
@@ -37,7 +47,7 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowFrontend");
 
 app.UseHttpsRedirection();
-app.UseStaticFiles();  
+app.UseStaticFiles();
 app.UseAuthorization();
 app.MapControllers();
 app.Run();
