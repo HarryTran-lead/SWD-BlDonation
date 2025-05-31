@@ -42,7 +42,10 @@ namespace SWD_BLDONATION.Controllers
                     RoleBit = u.RoleBit ?? 0,
                     HeightCm = u.HeightCm,
                     WeightKg = u.WeightKg,
-                    MedicalHistory = u.MedicalHistory
+                    MedicalHistory = u.MedicalHistory,
+                    BloodTypeId = u.BloodTypeId,
+                    BloodComponentId = u.BloodComponentId,
+                    IsDeleted = u.IsDeleted 
                 })
                 .ToListAsync();
 
@@ -69,43 +72,51 @@ namespace SWD_BLDONATION.Controllers
                     RoleBit = u.RoleBit ?? 0,
                     HeightCm = u.HeightCm,
                     WeightKg = u.WeightKg,
-                    MedicalHistory = u.MedicalHistory
+                    MedicalHistory = u.MedicalHistory,
+                    BloodTypeId = u.BloodTypeId,
+                    BloodComponentId = u.BloodComponentId,
+                    IsDeleted = u.IsDeleted 
                 })
                 .FirstOrDefaultAsync();
 
             if (user == null)
-                return NotFound();
+                return NotFound(new { message = "User not found" });
 
             return Ok(user);
         }
 
         // POST: api/Users
         [HttpPost]
-        public async Task<ActionResult<UserDto>> PostUser([FromForm] CreateUserDto dto)
+        public async Task<ActionResult<UserDto>> PostUser([FromBody] CreateUserDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            string? email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email;
-            string? identification = string.IsNullOrWhiteSpace(dto.Identification) ? null : dto.Identification;
+            if (!string.IsNullOrWhiteSpace(dto.Email))
+            {
+                var emailExists = await _context.Users.AnyAsync(u => u.Email == dto.Email && !u.IsDeleted);
+                if (emailExists)
+                    return BadRequest(new { message = "Email đã tồn tại." });
+            }
 
-            if (email != null && await _context.Users.AnyAsync(u => u.Email == email && !u.IsDeleted))
-                return BadRequest(new { message = "Email đã tồn tại." });
-
-            if (identification != null && await _context.Users.AnyAsync(u => u.Identification == identification && !u.IsDeleted))
-                return BadRequest(new { message = "Identification đã tồn tại." });
+            if (!string.IsNullOrWhiteSpace(dto.Identification))
+            {
+                var idExists = await _context.Users.AnyAsync(u => u.Identification == dto.Identification && !u.IsDeleted);
+                if (idExists)
+                    return BadRequest(new { message = "Identification đã tồn tại." });
+            }
 
             var user = new User
             {
                 UserName = dto.UserName,
                 Password = dto.Password,
-                Email = email,
-                Identification = identification,
+                Email = dto.Email,
+                Identification = dto.Identification,
                 Name = dto.Name,
                 Phone = dto.Phone,
                 DateOfBirth = dto.DateOfBirth,
                 Address = dto.Address,
-                StatusBit = 1, // mặc định Active
+                StatusBit = 1,
                 IsDeleted = false,
                 RoleBit = dto.RoleBit ?? 0,
                 BloodTypeId = dto.BloodTypeId,
@@ -132,20 +143,25 @@ namespace SWD_BLDONATION.Controllers
                 RoleBit = user.RoleBit ?? 0,
                 HeightCm = user.HeightCm,
                 WeightKg = user.WeightKg,
-                MedicalHistory = user.MedicalHistory
+                MedicalHistory = user.MedicalHistory,
+                BloodTypeId = user.BloodTypeId,
+                BloodComponentId = user.BloodComponentId,
+                IsDeleted = user.IsDeleted 
             };
 
             return CreatedAtAction(nameof(GetUser), new { id = user.UserId }, result);
         }
 
-
         // PUT: api/Users/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutUser(int id, [FromForm] UpdateUserDto dto)
+        public async Task<IActionResult> PutUser(int id, [FromBody] UpdateUserDto dto)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             var user = await _context.Users.FindAsync(id);
             if (user == null || user.IsDeleted)
-                return NotFound();
+                return NotFound(new { message = "User not found" });
 
             user.UserName = dto.UserName ?? user.UserName;
             user.Name = dto.Name ?? user.Name;
@@ -177,27 +193,27 @@ namespace SWD_BLDONATION.Controllers
             catch (DbUpdateConcurrencyException)
             {
                 if (!UserExists(id))
-                    return NotFound();
+                    return NotFound(new { message = "User not found" });
                 throw;
             }
 
             return NoContent();
         }
 
-        // DELETE: api/Users/5
+        // DELETE: api/Users/5 (soft delete)
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(int id)
         {
             var user = await _context.Users.FindAsync(id);
             if (user == null || user.IsDeleted)
-                return NotFound(new { message = "User not found." });
+                return NotFound(new { message = "User not found" });
 
             user.IsDeleted = true;
             _context.Entry(user).State = EntityState.Modified;
 
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation($"User deleted (soft): ID = {user.UserId}, UserName = {user.UserName}");
+            _logger.LogInformation($"User soft deleted: ID = {user.UserId}, UserName = {user.UserName}");
 
             return Ok(new { message = "User deleted successfully." });
         }
