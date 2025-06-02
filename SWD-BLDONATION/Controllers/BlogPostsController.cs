@@ -12,7 +12,6 @@ using System.Threading.Tasks;
 
 namespace SWD_BLDONATION.Controllers
 {
-    // DTO nhận dữ liệu từ form (multipart/form-data)
     public class CreateBlogPostFormDto
     {
         [Required]
@@ -48,7 +47,6 @@ namespace SWD_BLDONATION.Controllers
             _context = context;
         }
 
-        // GET: api/BlogPosts
         [HttpGet]
         public async Task<ActionResult<IEnumerable<BlogPostDto>>> GetBlogPosts()
         {
@@ -69,7 +67,6 @@ namespace SWD_BLDONATION.Controllers
             return Ok(new { Message = "Lấy danh sách bài viết thành công.", Data = posts });
         }
 
-        // GET: api/BlogPosts/5
         [HttpGet("{id}")]
         public async Task<ActionResult<BlogPostDto>> GetBlogPost(int id)
         {
@@ -94,7 +91,6 @@ namespace SWD_BLDONATION.Controllers
             return Ok(new { Message = "Lấy bài viết thành công.", Data = post });
         }
 
-        // POST: api/BlogPosts (nhận form-data)
         [HttpPost]
         public async Task<ActionResult<BlogPostDto>> CreatePost([FromForm] CreateBlogPostFormDto dto)
         {
@@ -113,7 +109,7 @@ namespace SWD_BLDONATION.Controllers
 
             if (dto.Img != null && dto.Img.Length > 0)
             {
-                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "images");
+                var uploadsFolder = Path.Combine("C:\\Users\\RAZER\\Downloads\\SWD\\SWD392_Blood_Donation_Project\\src\\assets\\Upload_Image");
                 if (!Directory.Exists(uploadsFolder))
                     Directory.CreateDirectory(uploadsFolder);
 
@@ -124,7 +120,7 @@ namespace SWD_BLDONATION.Controllers
                 {
                     using var fileStream = new FileStream(filePath, FileMode.Create);
                     await dto.Img.CopyToAsync(fileStream);
-                    post.ImgPath = "/uploads/images/" + uniqueFileName;
+                    post.ImgPath = "/assets/Upload_Image/" + uniqueFileName;
                 }
                 catch (Exception ex)
                 {
@@ -133,14 +129,7 @@ namespace SWD_BLDONATION.Controllers
             }
 
             _context.BlogPosts.Add(post);
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { Message = "Lỗi khi lưu bài viết vào cơ sở dữ liệu.", Detail = ex.Message });
-            }
+            await _context.SaveChangesAsync();
 
             var resultDto = new BlogPostDto
             {
@@ -157,7 +146,6 @@ namespace SWD_BLDONATION.Controllers
             return CreatedAtAction(nameof(GetBlogPost), new { id = post.PostId }, new { Message = "Tạo bài viết thành công.", Data = resultDto });
         }
 
-        // PUT: api/BlogPosts/5
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdatePost(int id, [FromForm] UpdateBlogPostFormDto dto)
         {
@@ -174,7 +162,7 @@ namespace SWD_BLDONATION.Controllers
 
             if (dto.Img != null && dto.Img.Length > 0)
             {
-                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "images");
+                var uploadsFolder = Path.Combine("C:\\Users\\RAZER\\Downloads\\SWD\\SWD392_Blood_Donation_Project\\src\\assets\\Upload_Image");
                 if (!Directory.Exists(uploadsFolder))
                     Directory.CreateDirectory(uploadsFolder);
 
@@ -185,7 +173,7 @@ namespace SWD_BLDONATION.Controllers
                 {
                     using var fileStream = new FileStream(filePath, FileMode.Create);
                     await dto.Img.CopyToAsync(fileStream);
-                    post.ImgPath = "/uploads/images/" + uniqueFileName;
+                    post.ImgPath = "/assets/Upload_Image/" + uniqueFileName;
                 }
                 catch (Exception ex)
                 {
@@ -194,28 +182,12 @@ namespace SWD_BLDONATION.Controllers
             }
 
             post.UpdatedAt = DateTime.Now;
-
             _context.Entry(post).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!_context.BlogPosts.Any(e => e.PostId == id))
-                    return NotFound(new { Message = $"Bài viết với id = {id} không còn tồn tại." });
-                throw;
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { Message = "Lỗi khi cập nhật bài viết.", Detail = ex.Message });
-            }
+            await _context.SaveChangesAsync();
 
             return Ok(new { Message = "Cập nhật bài viết thành công." });
         }
 
-        // DELETE: api/BlogPosts/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteBlogPost(int id)
         {
@@ -224,14 +196,7 @@ namespace SWD_BLDONATION.Controllers
                 return NotFound(new { Message = $"Không tìm thấy bài viết với id = {id}." });
 
             _context.BlogPosts.Remove(blogPost);
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { Message = "Lỗi khi xóa bài viết.", Detail = ex.Message });
-            }
+            await _context.SaveChangesAsync();
 
             return Ok(new { Message = "Xóa bài viết thành công." });
         }

@@ -33,9 +33,9 @@ public partial class User
 
     public byte? StatusBit { get; set; }
 
-    public decimal? HeightCm { get; set; }
+    public double? HeightCm { get; set; }
 
-    public decimal? WeightKg { get; set; }
+    public double? WeightKg { get; set; }
 
     public string? MedicalHistory { get; set; }
 

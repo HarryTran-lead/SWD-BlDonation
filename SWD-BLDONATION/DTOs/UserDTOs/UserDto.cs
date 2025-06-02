@@ -1,8 +1,13 @@
-﻿public class UserDto
+﻿using System.Text.Json.Serialization;
+
+public class UserDto
 {
     public int UserId { get; set; }
     public string? UserName { get; set; }
-    public string? Name { get; set; }
+
+    [JsonPropertyName("Full Name")]
+    public string Name { get; set; }
+
     public string? Email { get; set; }
     public string? Phone { get; set; }
     public DateOnly? DateOfBirth { get; set; }
@@ -11,8 +16,8 @@
     public bool IsDeleted { get; set; }
     public byte RoleBit { get; set; }
     public byte? StatusBit { get; set; }
-    public decimal? HeightCm { get; set; }
-    public decimal? WeightKg { get; set; }
+    public double? HeightCm { get; set; }
+    public double? WeightKg { get; set; }
     public string? MedicalHistory { get; set; }
 
     public int? BloodTypeId { get; set; }         // Thêm dòng này

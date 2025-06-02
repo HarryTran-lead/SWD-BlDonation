@@ -1,31 +1,48 @@
 ﻿using System;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace SWD_BLDONATION.DTOs.UserDTOs
 {
     public class UpdateUserDto
     {
+        [DefaultValue("")]
         public string? UserName { get; set; }
 
+        [DefaultValue("")]
+        [MinLength(6, ErrorMessage = "Password must be at least 6 characters.")]
+        public string? Password { get; set; }
+
+        [JsonPropertyName("Full Name")]
+        [DefaultValue("")]
         public string? Name { get; set; }
 
+        [DefaultValue("")]
         public string? Email { get; set; }
 
+        [DefaultValue("")]
         public string? Phone { get; set; }
 
-        public DateOnly? DateOfBirth { get; set; }  // dùng DateTime? nếu không phải .NET 6+
+        [DefaultValue("2000-01-01")]
+        public DateOnly? DateOfBirth { get; set; }
 
+        [DefaultValue("")]
         public string? Address { get; set; }
 
+        [DefaultValue("")]
         public string? Identification { get; set; }
 
-        public bool? StatusBit { get; set; }  // bool? cho phép cập nhật true/false hoặc bỏ qua
+        public bool? StatusBit { get; set; }
 
-        public byte? RoleBit { get; set; }    // 0-user, 1-staff, 2-admin
+        [DefaultValue(0)]
+        public byte? RoleBit { get; set; }
 
-        public decimal? HeightCm { get; set; }
+        public double? HeightCm { get; set; }
 
-        public decimal? WeightKg { get; set; }
+        public double? WeightKg { get; set; }
 
+        [DefaultValue("")]
         public string? MedicalHistory { get; set; }
 
         public int? BloodTypeId { get; set; }

@@ -21,7 +21,7 @@ namespace SWD_BLDONATION.Controllers
             _context = context;
             _logger = logger;
         }
-
+    
         // GET: api/Users
         [HttpGet]
         public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers()
@@ -87,35 +87,48 @@ namespace SWD_BLDONATION.Controllers
 
         // POST: api/Users
         [HttpPost]
-        public async Task<ActionResult<UserDto>> PostUser([FromBody] CreateUserDto dto)
+        public async Task<ActionResult<UserDto>> PostUser([FromForm] CreateUserDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            if (!string.IsNullOrWhiteSpace(dto.Email))
+            // Làm sạch dữ liệu đầu vào
+            string email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim();
+            string identification = string.IsNullOrWhiteSpace(dto.Identification) ? null : dto.Identification.Trim();
+            string userName = string.IsNullOrWhiteSpace(dto.UserName) ? null : dto.UserName.Trim();
+            string password = string.IsNullOrWhiteSpace(dto.Password) ? null : dto.Password.Trim();
+            string name = string.IsNullOrWhiteSpace(dto.Name) ? null : dto.Name.Trim();
+            string phone = string.IsNullOrWhiteSpace(dto.Phone) ? null : dto.Phone.Trim();
+            string address = string.IsNullOrWhiteSpace(dto.Address) ? null : dto.Address.Trim();
+            string medicalHistory = string.IsNullOrWhiteSpace(dto.MedicalHistory) ? null : dto.MedicalHistory.Trim();
+
+            // Kiểm tra trùng email
+            if (!string.IsNullOrEmpty(email))
             {
-                var emailExists = await _context.Users.AnyAsync(u => u.Email == dto.Email && !u.IsDeleted);
+                var emailExists = await _context.Users.AnyAsync(u => u.Email == email && !u.IsDeleted);
                 if (emailExists)
                     return BadRequest(new { message = "Email đã tồn tại." });
             }
 
-            if (!string.IsNullOrWhiteSpace(dto.Identification))
+            // Kiểm tra trùng identification
+            if (!string.IsNullOrEmpty(identification))
             {
-                var idExists = await _context.Users.AnyAsync(u => u.Identification == dto.Identification && !u.IsDeleted);
+                var idExists = await _context.Users.AnyAsync(u => u.Identification == identification && !u.IsDeleted);
                 if (idExists)
                     return BadRequest(new { message = "Identification đã tồn tại." });
             }
 
+            // Tạo đối tượng User mới
             var user = new User
             {
-                UserName = dto.UserName,
-                Password = dto.Password,
-                Email = dto.Email,
-                Identification = dto.Identification,
-                Name = dto.Name,
-                Phone = dto.Phone,
+                UserName = userName,
+                Password = password,
+                Email = email,
+                Identification = identification,
+                Name = name,
+                Phone = phone,
                 DateOfBirth = dto.DateOfBirth,
-                Address = dto.Address,
+                Address = address,
                 StatusBit = 1,
                 IsDeleted = false,
                 RoleBit = dto.RoleBit ?? 0,
@@ -123,38 +136,19 @@ namespace SWD_BLDONATION.Controllers
                 BloodComponentId = dto.BloodComponentId,
                 HeightCm = dto.HeightCm,
                 WeightKg = dto.WeightKg,
-                MedicalHistory = dto.MedicalHistory
+                MedicalHistory = medicalHistory
             };
 
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            var result = new UserDto
-            {
-                UserId = user.UserId,
-                UserName = user.UserName,
-                Name = user.Name,
-                Email = user.Email,
-                Phone = user.Phone,
-                DateOfBirth = user.DateOfBirth,
-                Address = user.Address,
-                Identification = user.Identification,
-                StatusBit = user.StatusBit ?? 1,
-                RoleBit = user.RoleBit ?? 0,
-                HeightCm = user.HeightCm,
-                WeightKg = user.WeightKg,
-                MedicalHistory = user.MedicalHistory,
-                BloodTypeId = user.BloodTypeId,
-                BloodComponentId = user.BloodComponentId,
-                IsDeleted = user.IsDeleted 
-            };
-
-            return CreatedAtAction(nameof(GetUser), new { id = user.UserId }, result);
+            return CreatedAtAction(nameof(GetUser), new { id = user.UserId }, user);
         }
 
-        // PUT: api/Users/5
+
+
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutUser(int id, [FromBody] UpdateUserDto dto)
+        public async Task<IActionResult> PutUser(int id, [FromForm] UpdateUserDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -163,42 +157,119 @@ namespace SWD_BLDONATION.Controllers
             if (user == null || user.IsDeleted)
                 return NotFound(new { message = "User not found" });
 
-            user.UserName = dto.UserName ?? user.UserName;
-            user.Name = dto.Name ?? user.Name;
-            user.Email = dto.Email ?? user.Email;
-            user.Phone = dto.Phone ?? user.Phone;
-            user.DateOfBirth = dto.DateOfBirth ?? user.DateOfBirth;
-            user.Address = dto.Address ?? user.Address;
-            user.Identification = dto.Identification ?? user.Identification;
+            var updatedFields = new List<string>();
+
+            string? email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim();
+            string? identification = string.IsNullOrWhiteSpace(dto.Identification) ? null : dto.Identification.Trim();
+            string? password = string.IsNullOrWhiteSpace(dto.Password) ? null : dto.Password.Trim();
+
+            if (!string.IsNullOrEmpty(email) && email != user.Email)
+            {
+                var emailExists = await _context.Users.AnyAsync(u => u.Email == email && !u.IsDeleted);
+                if (emailExists)
+                    return BadRequest(new { message = "Email đã tồn tại." });
+                user.Email = email;
+                updatedFields.Add("Email");
+            }
+
+            if (!string.IsNullOrEmpty(identification) && identification != user.Identification)
+            {
+                var idExists = await _context.Users.AnyAsync(u => u.Identification == identification && !u.IsDeleted);
+                if (idExists)
+                    return BadRequest(new { message = "Identification đã tồn tại." });
+                user.Identification = identification;
+                updatedFields.Add("Identification");
+            }
+
+            if (dto.UserName != null && dto.UserName != user.UserName)
+            {
+                user.UserName = dto.UserName;
+                updatedFields.Add("UserName");
+            }
+
+            if (password != null)
+            {
+                user.Password = password; // hoặc hash nếu cần
+                updatedFields.Add("Password");
+            }
+
+            if (dto.Name != null && dto.Name != user.Name)
+            {
+                user.Name = dto.Name;
+                updatedFields.Add("Name");
+            }
+
+            if (dto.Phone != null && dto.Phone != user.Phone)
+            {
+                user.Phone = dto.Phone;
+                updatedFields.Add("Phone");
+            }
+
+            if (dto.DateOfBirth.HasValue && dto.DateOfBirth != user.DateOfBirth)
+            {
+                user.DateOfBirth = dto.DateOfBirth;
+                updatedFields.Add("DateOfBirth");
+            }
+
+            if (dto.Address != null && dto.Address != user.Address)
+            {
+                user.Address = dto.Address;
+                updatedFields.Add("Address");
+            }
 
             if (dto.StatusBit.HasValue)
+            {
                 user.StatusBit = dto.StatusBit.Value ? (byte)1 : (byte)0;
+                updatedFields.Add("StatusBit");
+            }
 
-            if (dto.RoleBit.HasValue)
-                user.RoleBit = dto.RoleBit.Value;
+            if (dto.RoleBit.HasValue && dto.RoleBit != user.RoleBit)
+            {
+                user.RoleBit = dto.RoleBit;
+                updatedFields.Add("RoleBit");
+            }
 
-            user.BloodTypeId = dto.BloodTypeId ?? user.BloodTypeId;
-            user.BloodComponentId = dto.BloodComponentId ?? user.BloodComponentId;
-            user.HeightCm = dto.HeightCm ?? user.HeightCm;
-            user.WeightKg = dto.WeightKg ?? user.WeightKg;
-            user.MedicalHistory = dto.MedicalHistory ?? user.MedicalHistory;
+            if (dto.BloodTypeId.HasValue && dto.BloodTypeId != user.BloodTypeId)
+            {
+                user.BloodTypeId = dto.BloodTypeId;
+                updatedFields.Add("BloodTypeId");
+            }
+
+            if (dto.BloodComponentId.HasValue && dto.BloodComponentId != user.BloodComponentId)
+            {
+                user.BloodComponentId = dto.BloodComponentId;
+                updatedFields.Add("BloodComponentId");
+            }
+
+            if (dto.HeightCm.HasValue && dto.HeightCm != user.HeightCm)
+            {
+                user.HeightCm = dto.HeightCm;
+                updatedFields.Add("HeightCm");
+            }
+
+            if (dto.WeightKg.HasValue && dto.WeightKg != user.WeightKg)
+            {
+                user.WeightKg = dto.WeightKg;
+                updatedFields.Add("WeightKg");
+            }
+
+            if (dto.MedicalHistory != null && dto.MedicalHistory != user.MedicalHistory)
+            {
+                user.MedicalHistory = dto.MedicalHistory;
+                updatedFields.Add("MedicalHistory");
+            }
 
             _context.Entry(user).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
 
-            try
+            return Ok(new
             {
-                await _context.SaveChangesAsync();
-                _logger.LogInformation($"User updated: ID = {user.UserId}, UserName = {user.UserName}");
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!UserExists(id))
-                    return NotFound(new { message = "User not found" });
-                throw;
-            }
-
-            return NoContent();
+                message = "Cập nhật thành công.",
+                updatedFields = updatedFields.Count > 0 ? updatedFields : new List<string> { "Không có trường nào được cập nhật." }
+            });
         }
+
+
 
         // DELETE: api/Users/5 (soft delete)
         [HttpDelete("{id}")]

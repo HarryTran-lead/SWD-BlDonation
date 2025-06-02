@@ -6,6 +6,10 @@ namespace SWD_BLDONATION.Models.Generated;
 
 public partial class BloodDonationContext : DbContext
 {
+    public BloodDonationContext()
+    {
+    }
+
     public BloodDonationContext(DbContextOptions<BloodDonationContext> options)
         : base(options)
     {
@@ -32,6 +36,10 @@ public partial class BloodDonationContext : DbContext
     public virtual DbSet<RequestMatch> RequestMatches { get; set; }
 
     public virtual DbSet<User> Users { get; set; }
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
+        => optionsBuilder.UseSqlServer("Data Source=localhost\\SQLEXPRESS;Initial Catalog=BloodDonation;User ID=ad;Password=123;Encrypt=True;TrustServerCertificate=True");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -384,35 +392,27 @@ public partial class BloodDonationContext : DbContext
 
             entity.ToTable("User");
 
-            entity.HasIndex(e => e.Identification, "UQ__User__AAA7C1F571AA5E41").IsUnique();
+            entity.HasIndex(e => e.Email, "UQ_User_Email").IsUnique();
 
-            entity.HasIndex(e => e.Email, "UQ__User__AB6E616478514D0E").IsUnique();
+            entity.HasIndex(e => e.Identification, "UQ_User_Identification").IsUnique();
 
             entity.Property(e => e.UserId).HasColumnName("user_id");
             entity.Property(e => e.Address)
                 .HasMaxLength(255)
-                .IsUnicode(false)
                 .HasColumnName("address");
             entity.Property(e => e.BloodComponentId).HasColumnName("blood_component_id");
             entity.Property(e => e.BloodTypeId).HasColumnName("blood_type_id");
             entity.Property(e => e.DateOfBirth).HasColumnName("date_of_birth");
             entity.Property(e => e.Email)
                 .HasMaxLength(255)
-                .IsUnicode(false)
                 .HasColumnName("email");
-            entity.Property(e => e.HeightCm)
-                .HasColumnType("decimal(5, 2)")
-                .HasColumnName("height_cm");
+            entity.Property(e => e.HeightCm).HasColumnName("height_cm");
             entity.Property(e => e.Identification)
-                .HasMaxLength(20)
-                .IsUnicode(false)
+                .HasMaxLength(50)
                 .HasColumnName("identification");
-            entity.Property(e => e.MedicalHistory)
-                .HasColumnType("text")
-                .HasColumnName("medical_history");
+            entity.Property(e => e.MedicalHistory).HasColumnName("medical_history");
             entity.Property(e => e.Name)
                 .HasMaxLength(255)
-                .IsUnicode(false)
                 .HasColumnName("name");
             entity.Property(e => e.Password)
                 .HasMaxLength(255)
@@ -420,7 +420,6 @@ public partial class BloodDonationContext : DbContext
                 .HasColumnName("password");
             entity.Property(e => e.Phone)
                 .HasMaxLength(20)
-                .IsUnicode(false)
                 .HasColumnName("phone");
             entity.Property(e => e.RoleBit).HasColumnName("role_bit");
             entity.Property(e => e.StatusBit).HasColumnName("status_bit");
@@ -428,9 +427,7 @@ public partial class BloodDonationContext : DbContext
                 .HasMaxLength(255)
                 .IsUnicode(false)
                 .HasColumnName("user_name");
-            entity.Property(e => e.WeightKg)
-                .HasColumnType("decimal(5, 2)")
-                .HasColumnName("weight_kg");
+            entity.Property(e => e.WeightKg).HasColumnName("weight_kg");
 
             entity.HasOne(d => d.BloodComponent).WithMany(p => p.Users)
                 .HasForeignKey(d => d.BloodComponentId)
