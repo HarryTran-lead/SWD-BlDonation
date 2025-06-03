@@ -47,10 +47,16 @@ namespace SWD_BLDONATION.Controllers
 
         // POST: api/BloodRequests
         [HttpPost]
-        public async Task<ActionResult<BloodRequestDto>> PostBloodRequest(CreateBloodRequestDto createDto)
+        public async Task<ActionResult<BloodRequestDto>> PostBloodRequest([FromForm] CreateBloodRequestDto createDto)
         {
+            var allowedLevels = new[] { "emergency", "urgent", "normal" };
+            if (string.IsNullOrWhiteSpace(createDto.UrgencyLevel) || !allowedLevels.Contains(createDto.UrgencyLevel.ToLower()))
+            {
+                return BadRequest($"UrgencyLevel phải là một trong các giá trị: {string.Join(", ", allowedLevels)}");
+            }
+
             var entity = _mapper.Map<BloodRequest>(createDto);
-            entity.CreatedAt = System.DateTime.UtcNow;
+            entity.CreatedAt = DateTime.UtcNow;
             entity.Status = "pending";
             entity.Fulfilled = false;
 
@@ -61,9 +67,10 @@ namespace SWD_BLDONATION.Controllers
             return CreatedAtAction(nameof(GetBloodRequest), new { id = dto.BloodRequestId }, dto);
         }
 
+
         // PUT: api/BloodRequests/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutBloodRequest(int id, UpdateBloodRequestDto updateDto)
+        public async Task<IActionResult> PutBloodRequest(int id, [FromForm] UpdateBloodRequestDto updateDto)
         {
             if (id != updateDto.BloodRequestId)
             {
@@ -76,7 +83,6 @@ namespace SWD_BLDONATION.Controllers
                 return NotFound();
             }
 
-            // Map dữ liệu updateDto lên entity
             _mapper.Map(updateDto, entity);
 
             _context.Entry(entity).State = EntityState.Modified;
@@ -99,6 +105,7 @@ namespace SWD_BLDONATION.Controllers
 
             return NoContent();
         }
+
 
         // DELETE: api/BloodRequests/5
         [HttpDelete("{id}")]
