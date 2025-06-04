@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Linq;
+using SWD_BLDONATION.Models.Enums;
 
 namespace SWD_BLDONATION.Controllers
 {
@@ -21,35 +22,70 @@ namespace SWD_BLDONATION.Controllers
             _context = context;
             _logger = logger;
         }
-    
+
         // GET: api/Users
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers()
+        public async Task<ActionResult<object>> GetUsers([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
-            var users = await _context.Users
+            if (page < 1 || pageSize < 1)
+                return BadRequest(new { message = "Invalid page or pageSize." });
+
+            var query = _context.Users
                 .Where(u => !u.IsDeleted)
-                .Select(u => new UserDto
+                .GroupJoin(_context.BloodTypes,
+                    u => u.BloodTypeId,
+                    bt => bt.BloodTypeId,
+                    (u, bt) => new { User = u, BloodType = bt })
+                .SelectMany(
+                    x => x.BloodType.DefaultIfEmpty(),
+                    (u, bt) => new { u.User, BloodType = bt })
+                .GroupJoin(_context.BloodComponents,
+                    x => x.User.BloodComponentId,
+                    bc => bc.BloodComponentId,
+                    (x, bc) => new { x.User, x.BloodType, BloodComponent = bc })
+                .SelectMany(
+                    x => x.BloodComponent.DefaultIfEmpty(),
+                    (x, bc) => new { x.User, x.BloodType, BloodComponent = bc });
+
+            var users = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(x => new UserSearchDto
                 {
-                    UserId = u.UserId,
-                    UserName = u.UserName,
-                    Name = u.Name,
-                    Email = u.Email,
-                    Phone = u.Phone,
-                    DateOfBirth = u.DateOfBirth,
-                    Address = u.Address,
-                    Identification = u.Identification,
-                    StatusBit = u.StatusBit ?? 1,
-                    RoleBit = u.RoleBit ?? 0,
-                    HeightCm = u.HeightCm,
-                    WeightKg = u.WeightKg,
-                    MedicalHistory = u.MedicalHistory,
-                    BloodTypeId = u.BloodTypeId,
-                    BloodComponentId = u.BloodComponentId,
-                    IsDeleted = u.IsDeleted 
+                    UserId = x.User.UserId,
+                    UserName = x.User.UserName,
+                    Name = x.User.Name,
+                    Email = x.User.Email,
+                    Phone = x.User.Phone,
+                    DateOfBirth = x.User.DateOfBirth,
+                    Address = x.User.Address,
+                    Identification = x.User.Identification,
+                    StatusBit = x.User.StatusBit ?? 1,
+                    RoleBit = x.User.RoleBit ?? 0,
+                    HeightCm = x.User.HeightCm,
+                    WeightKg = x.User.WeightKg,
+                    MedicalHistory = x.User.MedicalHistory,
+                    BloodTypeId = x.User.BloodTypeId,
+                    BloodComponentId = x.User.BloodComponentId,
+                    IsDeleted = x.User.IsDeleted,
+                    Role = new EnumDto { Id = x.User.RoleBit ?? 0, Name = ((UserRole)(x.User.RoleBit ?? 0)).ToString() },
+                    Status = new EnumDto { Id = x.User.StatusBit ?? 1, Name = ((UserStatus)(x.User.StatusBit ?? 1)).ToString() },
+                    BloodType = x.BloodType != null ? new EnumDto { Id = x.BloodType.BloodTypeId, Name = x.BloodType.Name + x.BloodType.RhFactor } : null,
+                    BloodComponent = x.BloodComponent != null ? new EnumDto { Id = x.BloodComponent.BloodComponentId, Name = x.BloodComponent.Name } : null
                 })
                 .ToListAsync();
 
-            return Ok(users);
+            var totalCount = await query.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+            return Ok(new
+            {
+                Users = users,
+                TotalCount = totalCount,
+                TotalPages = totalPages,
+                CurrentPage = page,
+                PageSize = pageSize
+            });
         }
 
         // GET: api/Users/5
@@ -292,6 +328,87 @@ namespace SWD_BLDONATION.Controllers
         private bool UserExists(int id)
         {
             return _context.Users.Any(e => e.UserId == id && !e.IsDeleted);
+        }
+
+        [HttpGet("search")]
+        public async Task<ActionResult<object>> SearchUsers([FromQuery] UserSearchQueryDto query)
+        {
+            if (query.Page < 1 || query.PageSize < 1)
+                return BadRequest(new { message = "Invalid page or pageSize." });
+
+            var dbQuery = _context.Users
+                .Where(u => !u.IsDeleted)
+                .GroupJoin(_context.BloodTypes,
+                    u => u.BloodTypeId,
+                    bt => bt.BloodTypeId,
+                    (u, bt) => new { User = u, BloodType = bt })
+                .SelectMany(
+                    x => x.BloodType.DefaultIfEmpty(),
+                    (u, bt) => new { u.User, BloodType = bt })
+                .GroupJoin(_context.BloodComponents,
+                    x => x.User.BloodComponentId,
+                    bc => bc.BloodComponentId,
+                    (x, bc) => new { x.User, x.BloodType, BloodComponent = bc })
+                .SelectMany(
+                    x => x.BloodComponent.DefaultIfEmpty(),
+                    (x, bc) => new { x.User, x.BloodType, BloodComponent = bc });
+
+            if (!string.IsNullOrEmpty(query.UserName))
+                dbQuery = dbQuery.Where(x => x.User.UserName.Contains(query.UserName.Trim()));
+
+            if (!string.IsNullOrEmpty(query.Name))
+                dbQuery = dbQuery.Where(x => x.User.Name.Contains(query.Name.Trim()));
+
+            if (!string.IsNullOrEmpty(query.Email))
+                dbQuery = dbQuery.Where(x => x.User.Email != null && x.User.Email.Contains(query.Email.Trim()));
+
+            if (!string.IsNullOrEmpty(query.Phone))
+                dbQuery = dbQuery.Where(x => x.User.Phone != null && x.User.Phone.Contains(query.Phone.Trim()));
+
+            if (!string.IsNullOrEmpty(query.Address))
+                dbQuery = dbQuery.Where(x => x.User.Address != null && x.User.Address.Contains(query.Address.Trim()));
+
+            if (query.StatusBit.HasValue)
+                dbQuery = dbQuery.Where(x => x.User.StatusBit == query.StatusBit.Value);
+
+            if (query.Id.HasValue)
+                dbQuery = dbQuery.Where(x => x.User.UserId == query.Id.Value);
+
+            var users = await dbQuery
+                .Skip((query.Page - 1) * query.PageSize)
+                .Take(query.PageSize)
+                .Select(x => new UserSearchDto
+                {
+                    UserId = x.User.UserId,
+                    UserName = x.User.UserName,
+                    Name = x.User.Name,
+                    Email = x.User.Email,
+                    Phone = x.User.Phone,
+                    DateOfBirth = x.User.DateOfBirth,
+                    Address = x.User.Address,
+                    Identification = x.User.Identification,
+                    StatusBit = x.User.StatusBit ?? 1,
+                    RoleBit = x.User.RoleBit ?? 0,
+                    HeightCm = x.User.HeightCm,
+                    WeightKg = x.User.WeightKg,
+                    MedicalHistory = x.User.MedicalHistory,
+                    BloodTypeId = x.User.BloodTypeId,
+                    BloodComponentId = x.User.BloodComponentId,
+                    IsDeleted = x.User.IsDeleted
+                })
+                .ToListAsync();
+
+                    var totalCount = await dbQuery.CountAsync();
+                    var totalPages = (int)Math.Ceiling(totalCount / (double)query.PageSize);
+
+            return Ok(new
+            {
+                Users = users,
+                TotalCount = totalCount,
+                TotalPages = totalPages,
+                CurrentPage = query.Page,
+                PageSize = query.PageSize
+            });
         }
     }
 }

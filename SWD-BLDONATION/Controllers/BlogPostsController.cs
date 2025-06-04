@@ -5,97 +5,171 @@ using SWD_BLDONATION.DTOs;
 using SWD_BLDONATION.Models.Generated;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace SWD_BLDONATION.Controllers
 {
-    public class CreateBlogPostFormDto
-    {
-        [Required]
-        public int UserId { get; set; }
-
-        [Required]
-        public string Title { get; set; }
-
-        [Required]
-        public string Content { get; set; }
-
-        public string Category { get; set; }
-
-        public IFormFile Img { get; set; }
-    }
-
-    public class UpdateBlogPostFormDto
-    {
-        public string Title { get; set; }
-        public string Content { get; set; }
-        public string Category { get; set; }
-        public IFormFile Img { get; set; }
-    }
-
     [Route("api/[controller]")]
     [ApiController]
     public class BlogPostsController : ControllerBase
     {
         private readonly BloodDonationContext _context;
+        private readonly string _uploadsFolder;
 
-        public BlogPostsController(BloodDonationContext context)
+        public BlogPostsController(BloodDonationContext context, IWebHostEnvironment env)
         {
             _context = context;
+            _uploadsFolder = Path.Combine(env.WebRootPath, "assets", "Upload_Image");
+            if (!Directory.Exists(_uploadsFolder))
+                Directory.CreateDirectory(_uploadsFolder);
         }
 
+        // GET: api/BlogPosts
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<BlogPostDto>>> GetBlogPosts()
+        public async Task<ActionResult<object>> GetBlogPosts([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
-            var posts = await _context.BlogPosts
-                .Select(post => new BlogPostDto
+            if (page < 1 || pageSize < 1)
+                return BadRequest(new { Message = "Invalid page or pageSize." });
+
+            var query = _context.BlogPosts
+                .Join(_context.Users,
+                    p => p.UserId,
+                    u => u.UserId,
+                    (p, u) => new { Post = p, UserName = u.UserName });
+
+            var posts = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(x => new BlogPostDto
                 {
-                    PostId = post.PostId,
-                    UserId = post.UserId,
-                    Title = post.Title,
-                    Content = post.Content,
-                    Category = post.Category,
-                    CreatedAt = post.CreatedAt,
-                    UpdatedAt = post.UpdatedAt,
-                    ImgPath = post.ImgPath
+                    PostId = x.Post.PostId,
+                    UserId = x.Post.UserId,
+                    Title = x.Post.Title,
+                    Content = x.Post.Content,
+                    Category = x.Post.Category,
+                    CreatedAt = x.Post.CreatedAt,
+                    UpdatedAt = x.Post.UpdatedAt,
+                    ImgPath = x.Post.ImgPath,
+                    UserName = x.UserName
                 })
                 .ToListAsync();
 
-            return Ok(new { Message = "Lấy danh sách bài viết thành công.", Data = posts });
+            var totalCount = await query.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+            return Ok(new
+            {
+                Message = "Retrieved blog posts successfully.",
+                Data = new
+                {
+                    Posts = posts,
+                    TotalCount = totalCount,
+                    TotalPages = totalPages,
+                    CurrentPage = page,
+                    PageSize = pageSize
+                }
+            });
         }
 
+        // GET: api/BlogPosts/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<BlogPostDto>> GetBlogPost(int id)
+        public async Task<ActionResult<object>> GetBlogPost(int id)
         {
             var post = await _context.BlogPosts
                 .Where(p => p.PostId == id)
-                .Select(post => new BlogPostDto
+                .Join(_context.Users,
+                    p => p.UserId,
+                    u => u.UserId,
+                    (p, u) => new { Post = p, UserName = u.UserName })
+                .Select(x => new BlogPostDto
                 {
-                    PostId = post.PostId,
-                    UserId = post.UserId,
-                    Title = post.Title,
-                    Content = post.Content,
-                    Category = post.Category,
-                    CreatedAt = post.CreatedAt,
-                    UpdatedAt = post.UpdatedAt,
-                    ImgPath = post.ImgPath
+                    PostId = x.Post.PostId,
+                    UserId = x.Post.UserId,
+                    Title = x.Post.Title,
+                    Content = x.Post.Content,
+                    Category = x.Post.Category,
+                    CreatedAt = x.Post.CreatedAt,
+                    UpdatedAt = x.Post.UpdatedAt,
+                    ImgPath = x.Post.ImgPath,
+                    UserName = x.UserName
                 })
                 .FirstOrDefaultAsync();
 
             if (post == null)
-                return NotFound(new { Message = $"Không tìm thấy bài viết với id = {id}." });
+                return NotFound(new { Message = $"Blog post with id = {id} not found." });
 
-            return Ok(new { Message = "Lấy bài viết thành công.", Data = post });
+            return Ok(new { Message = "Retrieved blog post successfully.", Data = post });
         }
 
+        // GET: api/BlogPosts/search
+        [HttpGet("search")]
+        public async Task<ActionResult<object>> SearchBlogPosts([FromQuery] BlogPostSearchQueryDto query)
+        {
+            if (query.Page < 1 || query.PageSize < 1)
+                return BadRequest(new { Message = "Invalid page or pageSize." });
+
+            var dbQuery = _context.BlogPosts
+                .Join(_context.Users,
+                    p => p.UserId,
+                    u => u.UserId,
+                    (p, u) => new { Post = p, UserName = u.UserName });
+
+            if (query.Id.HasValue)
+                dbQuery = dbQuery.Where(x => x.Post.PostId == query.Id.Value);
+
+            if (!string.IsNullOrEmpty(query.Title))
+                dbQuery = dbQuery.Where(x => x.Post.Title.Contains(query.Title.Trim()));
+
+            var posts = await dbQuery
+                .Skip((query.Page - 1) * query.PageSize)
+                .Take(query.PageSize)
+                .Select(x => new BlogPostDto
+                {
+                    PostId = x.Post.PostId,
+                    UserId = x.Post.UserId,
+                    Title = x.Post.Title,
+                    Content = x.Post.Content,
+                    Category = x.Post.Category,
+                    CreatedAt = x.Post.CreatedAt,
+                    UpdatedAt = x.Post.UpdatedAt,
+                    ImgPath = x.Post.ImgPath,
+                    UserName = x.UserName
+                })
+                .ToListAsync();
+
+            var totalCount = await dbQuery.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalCount / (double)query.PageSize);
+
+            return Ok(new
+            {
+                Message = "Search completed successfully.",
+                Data = new
+                {
+                    Posts = posts,
+                    TotalCount = totalCount,
+                    TotalPages = totalPages,
+                    CurrentPage = query.Page,
+                    PageSize = query.PageSize
+                }
+            });
+        }
+
+        // POST: api/BlogPosts
         [HttpPost]
-        public async Task<ActionResult<BlogPostDto>> CreatePost([FromForm] CreateBlogPostFormDto dto)
+        public async Task<ActionResult<object>> CreatePost([FromForm] CreateBlogPostDto dto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(new { Message = "Dữ liệu không hợp lệ.", Errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage) });
+                return BadRequest(new
+                {
+                    Message = "Invalid data.",
+                    Errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)
+                });
+
+            var user = await _context.Users.FindAsync(dto.UserId);
+            if (user == null || user.IsDeleted)
+                return BadRequest(new { Message = $"User with id = {dto.UserId} does not exist or is deleted." });
 
             var post = new BlogPost
             {
@@ -103,28 +177,24 @@ namespace SWD_BLDONATION.Controllers
                 Title = dto.Title,
                 Content = dto.Content,
                 Category = dto.Category,
-                CreatedAt = DateTime.Now,
-                UpdatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
             };
 
             if (dto.Img != null && dto.Img.Length > 0)
             {
-                var uploadsFolder = Path.Combine("C:\\Users\\RAZER\\Downloads\\SWD\\SWD392_Blood_Donation_Project\\src\\assets\\Upload_Image");
-                if (!Directory.Exists(uploadsFolder))
-                    Directory.CreateDirectory(uploadsFolder);
-
                 var uniqueFileName = Guid.NewGuid().ToString() + Path.GetExtension(dto.Img.FileName);
-                var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+                var filePath = Path.Combine(_uploadsFolder, uniqueFileName);
 
                 try
                 {
                     using var fileStream = new FileStream(filePath, FileMode.Create);
                     await dto.Img.CopyToAsync(fileStream);
-                    post.ImgPath = "/assets/Upload_Image/" + uniqueFileName;
+                    post.ImgPath = $"/assets/Upload_Image/{uniqueFileName}";
                 }
                 catch (Exception ex)
                 {
-                    return StatusCode(500, new { Message = "Lỗi khi lưu file ảnh.", Detail = ex.Message });
+                    return StatusCode(500, new { Message = "Error saving image file.", Detail = ex.Message });
                 }
             }
 
@@ -140,65 +210,93 @@ namespace SWD_BLDONATION.Controllers
                 Category = post.Category,
                 CreatedAt = post.CreatedAt,
                 UpdatedAt = post.UpdatedAt,
-                ImgPath = post.ImgPath
+                ImgPath = post.ImgPath,
+                UserName = user.UserName
             };
 
-            return CreatedAtAction(nameof(GetBlogPost), new { id = post.PostId }, new { Message = "Tạo bài viết thành công.", Data = resultDto });
+            return CreatedAtAction(nameof(GetBlogPost), new { id = post.PostId },
+                new { Message = "Blog post created successfully.", Data = resultDto });
         }
 
+        // PUT: api/BlogPosts/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdatePost(int id, [FromForm] UpdateBlogPostFormDto dto)
+        public async Task<IActionResult> UpdatePost(int id, [FromForm] UpdateBlogPostDto dto)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(new
+                {
+                    Message = "Invalid data.",
+                    Errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)
+                });
+
             var post = await _context.BlogPosts.FindAsync(id);
             if (post == null)
-                return NotFound(new { Message = $"Không tìm thấy bài viết với id = {id}." });
+                return NotFound(new { Message = $"Blog post with id = {id} not found." });
 
-            if (dto.Title != null)
+            var updatedFields = new List<string>();
+
+            if (!string.IsNullOrEmpty(dto.Title) && dto.Title != post.Title)
+            {
                 post.Title = dto.Title;
-            if (dto.Content != null)
+                updatedFields.Add("Title");
+            }
+
+            if (!string.IsNullOrEmpty(dto.Content) && dto.Content != post.Content)
+            {
                 post.Content = dto.Content;
-            if (dto.Category != null)
+                updatedFields.Add("Content");
+            }
+
+            if (dto.Category != null && dto.Category != post.Category)
+            {
                 post.Category = dto.Category;
+                updatedFields.Add("Category");
+            }
 
             if (dto.Img != null && dto.Img.Length > 0)
             {
-                var uploadsFolder = Path.Combine("C:\\Users\\RAZER\\Downloads\\SWD\\SWD392_Blood_Donation_Project\\src\\assets\\Upload_Image");
-                if (!Directory.Exists(uploadsFolder))
-                    Directory.CreateDirectory(uploadsFolder);
-
                 var uniqueFileName = Guid.NewGuid().ToString() + Path.GetExtension(dto.Img.FileName);
-                var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+                var filePath = Path.Combine(_uploadsFolder, uniqueFileName);
 
                 try
                 {
                     using var fileStream = new FileStream(filePath, FileMode.Create);
                     await dto.Img.CopyToAsync(fileStream);
-                    post.ImgPath = "/assets/Upload_Image/" + uniqueFileName;
+                    post.ImgPath = $"/assets/Upload_Image/{uniqueFileName}";
+                    updatedFields.Add("ImgPath");
                 }
                 catch (Exception ex)
                 {
-                    return StatusCode(500, new { Message = "Lỗi khi lưu file ảnh.", Detail = ex.Message });
+                    return StatusCode(500, new { Message = "Error saving image file.", Detail = ex.Message });
                 }
             }
 
-            post.UpdatedAt = DateTime.Now;
-            _context.Entry(post).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
+            if (updatedFields.Count > 0)
+            {
+                post.UpdatedAt = DateTime.UtcNow;
+                _context.Entry(post).State = EntityState.Modified;
+                await _context.SaveChangesAsync();
+            }
 
-            return Ok(new { Message = "Cập nhật bài viết thành công." });
+            return Ok(new
+            {
+                Message = "Blog post updated successfully.",
+                UpdatedFields = updatedFields.Count > 0 ? updatedFields : new List<string> { "No fields were updated." }
+            });
         }
 
+        // DELETE: api/BlogPosts/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteBlogPost(int id)
         {
             var blogPost = await _context.BlogPosts.FindAsync(id);
             if (blogPost == null)
-                return NotFound(new { Message = $"Không tìm thấy bài viết với id = {id}." });
+                return NotFound(new { Message = $"Blog post with id = {id} not found." });
 
             _context.BlogPosts.Remove(blogPost);
             await _context.SaveChangesAsync();
 
-            return Ok(new { Message = "Xóa bài viết thành công." });
+            return Ok(new { Message = "Blog post deleted successfully." });
         }
     }
 }
