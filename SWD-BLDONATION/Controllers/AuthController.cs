@@ -47,7 +47,7 @@ namespace SWD_BLDONATION.Controllers
                 Name = name,
                 StatusBit = 1,
                 IsDeleted = false,
-                RoleBit = 1
+                RoleBit = 0
             };
 
             _context.Users.Add(user);

@@ -1,9 +1,9 @@
-﻿using AutoMapper;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using SWD_BLDONATION.DTOs.BloodRequestDTOs;
 using SWD_BLDONATION.Models.Generated;
+using SWD_BLDONATION.Models.Enums; // Import BloodRequestStatus enum
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,13 +16,11 @@ namespace SWD_BLDONATION.Controllers
     public class BloodRequestsController : ControllerBase
     {
         private readonly BloodDonationContext _context;
-        private readonly IMapper _mapper;
         private readonly ILogger<BloodRequestsController> _logger;
 
-        public BloodRequestsController(BloodDonationContext context, IMapper mapper, ILogger<BloodRequestsController> logger)
+        public BloodRequestsController(BloodDonationContext context, ILogger<BloodRequestsController> logger)
         {
             _context = context;
-            _mapper = mapper;
             _logger = logger;
         }
 
@@ -45,15 +43,20 @@ namespace SWD_BLDONATION.Controllers
                     (br, u) => new { BloodRequest = br, Users = u })
                 .SelectMany(
                     x => x.Users.DefaultIfEmpty(),
-                    (x, u) => new { x.BloodRequest, UserName = u != null ? u.UserName : null })
+                    (x, u) => new {
+                        x.BloodRequest,
+                        Name = u != null ? u.Name : null, // Use Name instead of UserName
+                        DateOfBirth = u != null ? u.DateOfBirth : (DateOnly?)null,
+                        Phone = u != null ? u.Phone : null
+                    })
                 .Join(_context.BloodTypes,
                     x => x.BloodRequest.BloodTypeId,
                     bt => bt.BloodTypeId,
-                    (x, bt) => new { x.BloodRequest, x.UserName, BloodTypeName = bt.Name + bt.RhFactor })
+                    (x, bt) => new { x.BloodRequest, x.Name, x.DateOfBirth, x.Phone, BloodTypeName = bt.Name + bt.RhFactor })
                 .Join(_context.BloodComponents,
                     x => x.BloodRequest.BloodComponentId,
                     bc => bc.BloodComponentId,
-                    (x, bc) => new { x.BloodRequest, x.UserName, x.BloodTypeName, BloodComponentName = bc.Name });
+                    (x, bc) => new { x.BloodRequest, x.Name, x.DateOfBirth, x.Phone, x.BloodTypeName, BloodComponentName = bc.Name });
 
             var requests = await query
                 .Skip((page - 1) * pageSize)
@@ -62,20 +65,26 @@ namespace SWD_BLDONATION.Controllers
                 {
                     BloodRequestId = x.BloodRequest.BloodRequestId,
                     UserId = x.BloodRequest.UserId,
-                    UserName = x.UserName,
-                    BloodTypeId = x.BloodRequest.BloodTypeId,
+                    Name = x.Name,  // Now correctly handled as Name
+                    DateOfBirth = x.DateOfBirth,  // Now correctly handled for null
+                    Phone = x.Phone,  // Now correctly handled for null
+                    BloodTypeId = x.BloodRequest.BloodTypeId ?? 0,  // Use 0 if BloodTypeId is null
                     BloodTypeName = x.BloodTypeName,
-                    BloodComponentId = x.BloodRequest.BloodComponentId,
+                    BloodComponentId = x.BloodRequest.BloodComponentId ?? 0,  // Use 0 if BloodComponentId is null
                     BloodComponentName = x.BloodComponentName,
-                    IsEmergency = x.BloodRequest.IsEmergency.Value,
-                    Status = x.BloodRequest.Status,
-                    CreatedAt = x.BloodRequest.CreatedAt.Value,
+                    IsEmergency = x.BloodRequest.IsEmergency.HasValue ? x.BloodRequest.IsEmergency.Value : false,
+                    Status = new StatusDto
+                    {
+                        Id = (byte)BloodRequestStatus.Pending, // Default to Pending (0)
+                        Name = BloodRequestStatus.Pending.ToString() // Convert enum to string
+                    },
+                    CreatedAt = x.BloodRequest.CreatedAt.HasValue ? x.BloodRequest.CreatedAt.Value : DateTime.MinValue,
                     Location = x.BloodRequest.Location,
-                    Quantity = x.BloodRequest.Quantity.Value,
-                    Fulfilled = x.BloodRequest.Fulfilled.Value,
+                    Quantity = x.BloodRequest.Quantity.HasValue ? (int)x.BloodRequest.Quantity.Value : 0, // Handle nullable decimal to int
+                    Fulfilled = x.BloodRequest.Fulfilled.HasValue ? x.BloodRequest.Fulfilled.Value : false,
                     FulfilledSource = x.BloodRequest.FulfilledSource,
-                    HeightCm = x.BloodRequest.HeightCm.Value,
-                    WeightKg = x.BloodRequest.WeightKg.Value,
+                    HeightCm = x.BloodRequest.HeightCm.HasValue ? (int)x.BloodRequest.HeightCm.Value : 0, // Handle nullable decimal to int
+                    WeightKg = x.BloodRequest.WeightKg.HasValue ? (int)x.BloodRequest.WeightKg.Value : 0, // Handle nullable decimal to int
                     HealthInfo = x.BloodRequest.HealthInfo
                 })
                 .ToListAsync();
@@ -113,11 +122,11 @@ namespace SWD_BLDONATION.Controllers
                     (br, u) => new { BloodRequest = br, Users = u })
                 .SelectMany(
                     x => x.Users.DefaultIfEmpty(),
-                    (x, u) => new { x.BloodRequest, UserName = u != null ? u.UserName : null })
+                    (x, u) => new { x.BloodRequest, Name = u != null ? u.Name : null, DateOfBirth = u != null ? u.DateOfBirth : (DateOnly?)null, Phone = u != null ? u.Phone : null })
                 .Join(_context.BloodTypes,
                     x => x.BloodRequest.BloodTypeId,
                     bt => bt.BloodTypeId,
-                    (x, bt) => new { x.BloodRequest, x.UserName, BloodTypeName = bt.Name + bt.RhFactor })
+                    (x, bt) => new { x.BloodRequest, x.Name, x.DateOfBirth, x.Phone, BloodTypeName = bt.Name + bt.RhFactor })
                 .Join(_context.BloodComponents,
                     x => x.BloodRequest.BloodComponentId,
                     bc => bc.BloodComponentId,
@@ -125,20 +134,26 @@ namespace SWD_BLDONATION.Controllers
                     {
                         BloodRequestId = x.BloodRequest.BloodRequestId,
                         UserId = x.BloodRequest.UserId,
-                        UserName = x.UserName,
-                        BloodTypeId = x.BloodRequest.BloodTypeId,
+                        Name = x.Name,  // Include Name
+                        DateOfBirth = x.DateOfBirth,  // Include DateOfBirth
+                        Phone = x.Phone,  // Include Phone
+                        BloodTypeId = x.BloodRequest.BloodTypeId ?? 0,  // Use 0 if BloodTypeId is null
                         BloodTypeName = x.BloodTypeName,
-                        BloodComponentId = x.BloodRequest.BloodComponentId,
+                        BloodComponentId = x.BloodRequest.BloodComponentId ?? 0,  // Use 0 if BloodComponentId is null
                         BloodComponentName = bc.Name,
-                        IsEmergency = x.BloodRequest.IsEmergency.Value,
-                        Status = x.BloodRequest.Status,
-                        CreatedAt = x.BloodRequest.CreatedAt.Value,
+                        IsEmergency = x.BloodRequest.IsEmergency.HasValue ? x.BloodRequest.IsEmergency.Value : false,
+                        Status = new StatusDto
+                        {
+                            Id = (byte)BloodRequestStatus.Pending,
+                            Name = BloodRequestStatus.Pending.ToString()
+                        },
+                        CreatedAt = x.BloodRequest.CreatedAt.HasValue ? x.BloodRequest.CreatedAt.Value : DateTime.MinValue,
                         Location = x.BloodRequest.Location,
-                        Quantity = x.BloodRequest.Quantity.Value,
-                        Fulfilled = x.BloodRequest.Fulfilled.Value,
+                        Quantity = x.BloodRequest.Quantity.HasValue ? (int)x.BloodRequest.Quantity.Value : 0, // Handle nullable decimal to int
+                        Fulfilled = x.BloodRequest.Fulfilled.HasValue ? x.BloodRequest.Fulfilled.Value : false,
                         FulfilledSource = x.BloodRequest.FulfilledSource,
-                        HeightCm = x.BloodRequest.HeightCm.Value,
-                        WeightKg = x.BloodRequest.WeightKg.Value,
+                        HeightCm = x.BloodRequest.HeightCm.HasValue ? (int)x.BloodRequest.HeightCm.Value : 0, // Handle nullable decimal to int
+                        WeightKg = x.BloodRequest.WeightKg.HasValue ? (int)x.BloodRequest.WeightKg.Value : 0, // Handle nullable decimal to int
                         HealthInfo = x.BloodRequest.HealthInfo
                     })
                 .FirstOrDefaultAsync();
@@ -153,262 +168,84 @@ namespace SWD_BLDONATION.Controllers
             return Ok(new { Message = "Retrieved blood request successfully.", Data = request });
         }
 
-        // GET: api/BloodRequests/search
-        [HttpGet("search")]
-        public async Task<ActionResult<object>> SearchBloodRequests([FromQuery] BloodRequestSearchQueryDto query)
-        {
-            _logger.LogInformation("SearchBloodRequests called with query: {@Query}", query);
-
-            if (query.Page < 1 || query.PageSize < 1)
-            {
-                _logger.LogWarning("Invalid page or pageSize: page={Page}, pageSize={PageSize}", query.Page, query.PageSize);
-                return BadRequest(new { Message = "Invalid page or pageSize." });
-            }
-
-            var dbQuery = _context.BloodRequests
-                .GroupJoin(_context.Users,
-                    br => br.UserId,
-                    u => u.UserId,
-                    (br, u) => new { BloodRequest = br, Users = u })
-                .SelectMany(
-                    x => x.Users.DefaultIfEmpty(),
-                    (x, u) => new { x.BloodRequest, UserName = u != null ? u.UserName : null })
-                .Join(_context.BloodTypes,
-                    x => x.BloodRequest.BloodTypeId,
-                    bt => bt.BloodTypeId,
-                    (x, bt) => new { x.BloodRequest, x.UserName, BloodTypeName = bt.Name + bt.RhFactor })
-                .Join(_context.BloodComponents,
-                    x => x.BloodRequest.BloodComponentId,
-                    bc => bc.BloodComponentId,
-                    (x, bc) => new { x.BloodRequest, x.UserName, x.BloodTypeName, BloodComponentName = bc.Name });
-
-            if (query.Id.HasValue)
-                dbQuery = dbQuery.Where(x => x.BloodRequest.BloodRequestId == query.Id.Value);
-
-            if (query.UserId.HasValue)
-                dbQuery = dbQuery.Where(x => x.BloodRequest.UserId == query.UserId.Value);
-
-            if (query.BloodTypeId.HasValue)
-                dbQuery = dbQuery.Where(x => x.BloodRequest.BloodTypeId == query.BloodTypeId.Value);
-
-            if (query.BloodComponentId.HasValue)
-                dbQuery = dbQuery.Where(x => x.BloodRequest.BloodComponentId == query.BloodComponentId.Value);
-
-            if (!string.IsNullOrEmpty(query.Status))
-                dbQuery = dbQuery.Where(x => x.BloodRequest.Status.ToLower() == query.Status.Trim().ToLower());
-
-            if (!string.IsNullOrEmpty(query.Location))
-                dbQuery = dbQuery.Where(x => x.BloodRequest.Location.Contains(query.Location.Trim()));
-
-            var requests = await dbQuery
-                .Skip((query.Page - 1) * query.PageSize)
-                .Take(query.PageSize)
-                .Select(x => new BloodRequestDto
-                {
-                    BloodRequestId = x.BloodRequest.BloodRequestId,
-                    UserId = x.BloodRequest.UserId,
-                    UserName = x.UserName,
-                    BloodTypeId = x.BloodRequest.BloodTypeId,
-                    BloodTypeName = x.BloodTypeName,
-                    BloodComponentId = x.BloodRequest.BloodComponentId,
-                    BloodComponentName = x.BloodComponentName,
-                    IsEmergency = x.BloodRequest.IsEmergency.Value,
-                    Status = x.BloodRequest.Status,
-                    CreatedAt = x.BloodRequest.CreatedAt.Value,
-                    Location = x.BloodRequest.Location,
-                    Quantity = x.BloodRequest.Quantity.Value,
-                    Fulfilled = x.BloodRequest.Fulfilled.Value,
-                    FulfilledSource = x.BloodRequest.FulfilledSource,
-                    HeightCm = x.BloodRequest.HeightCm.Value,
-                    WeightKg = x.BloodRequest.WeightKg.Value,
-                    HealthInfo = x.BloodRequest.HealthInfo
-                })
-                .ToListAsync();
-
-            var totalCount = await dbQuery.CountAsync();
-            var totalPages = (int)Math.Ceiling(totalCount / (double)query.PageSize);
-
-            _logger.LogInformation("SearchBloodRequests returned {Count} items", requests.Count);
-
-            return Ok(new
-            {
-                Message = "Search completed successfully.",
-                Data = new
-                {
-                    Requests = requests,
-                    TotalCount = totalCount,
-                    TotalPages = totalPages,
-                    CurrentPage = query.Page,
-                    PageSize = query.PageSize
-                }
-            });
-        }
-
         // POST: api/BloodRequests
         [HttpPost]
-        public async Task<ActionResult<object>> PostBloodRequest([FromForm] CreateBloodRequestDto createDto)
+        public async Task<ActionResult<object>> PostBloodRequest([FromBody] CreateBloodRequestDto dto)
         {
-            _logger.LogInformation("PostBloodRequest called with data: {@CreateDto}", createDto);
+            _logger.LogInformation("PostBloodRequest called with data: {@CreateDto}", dto);
 
             if (!ModelState.IsValid)
             {
                 _logger.LogWarning("PostBloodRequest: Invalid data provided");
-                return BadRequest(new
-                {
-                    message = "Invalid data submitted.",
-                    errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)
-                });
+                return BadRequest(new { message = "Invalid data submitted.", errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage) });
             }
 
-            if (createDto.UserId.HasValue)
+            var bloodRequest = new BloodRequest
             {
-                var userExists = await _context.Users.AnyAsync(u => u.UserId == createDto.UserId.Value && !u.IsDeleted);
-                if (!userExists)
-                {
-                    _logger.LogWarning("PostBloodRequest: UserId={UserId} does not exist or is deleted", createDto.UserId);
-                    return BadRequest(new { message = $"User with id = {createDto.UserId} not found or is deleted." });
-                }
-            }
+                BloodTypeId = dto.BloodTypeId,
+                BloodComponentId = dto.BloodComponentId,
+                IsEmergency = dto.IsEmergency,
+                Status = (byte)BloodRequestStatus.Pending, // Default to Pending
+                CreatedAt = DateTime.UtcNow,
+                Location = dto.Location,
+                Quantity = dto.Quantity,
+                Fulfilled = false,
+                HealthInfo = dto.HealthInfo
+            };
 
-            var bloodTypeExists = await _context.BloodTypes.AnyAsync(bt => bt.BloodTypeId == createDto.BloodTypeId);
-            if (!bloodTypeExists)
+            _context.BloodRequests.Add(bloodRequest);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetBloodRequest), new { id = bloodRequest.BloodRequestId }, bloodRequest);
+        }
+
+        // PUT: api/BloodRequests/5
+        [HttpPut("{id}")]
+        public async Task<IActionResult> PutBloodRequest(int id, [FromBody] UpdateBloodRequestDto dto)
+        {
+            var bloodRequest = await _context.BloodRequests.FindAsync(id);
+            if (bloodRequest == null)
             {
-                _logger.LogWarning("PostBloodRequest: BloodTypeId={BloodTypeId} does not exist", createDto.BloodTypeId);
-                return BadRequest(new { message = $"Blood type with id = {createDto.BloodTypeId} not found." });
+                return NotFound(new { message = "Blood request not found" });
             }
 
-            var bloodComponentExists = await _context.BloodComponents.AnyAsync(bc => bc.BloodComponentId == createDto.BloodComponentId);
-            if (!bloodComponentExists)
+            // Validate the status enum
+            if (dto.Status.HasValue && !Enum.IsDefined(typeof(BloodRequestStatus), dto.Status))
             {
-                _logger.LogWarning("PostBloodRequest: BloodComponentId={BloodComponentId} does not exist", createDto.BloodComponentId);
-                return BadRequest(new { message = $"Blood component with id = {createDto.BloodComponentId} not found." });
+                return BadRequest(new { message = "Invalid status value." });
             }
-            var  transaction = await _context.Database.BeginTransactionAsync();
-            try
-            {
 
-                var bloodRequest = _mapper.Map<BloodRequest>(createDto);
-                bloodRequest.CreatedAt = DateTime.UtcNow;
-                bloodRequest.Status = "pending";
-                bloodRequest.Fulfilled = false;
+            // Update status if valid
+            bloodRequest.Status = dto.Status.HasValue
+                ? (byte)dto.Status.Value
+                : bloodRequest.Status;
 
-                var inventory = await _context.BloodInventories
-                    .Where(i => i.BloodTypeId == createDto.BloodTypeId &&
-                                i.BloodComponentId == createDto.BloodComponentId &&
-                                i.Quantity >= createDto.Quantity)
-                    .FirstOrDefaultAsync();
+            _context.Entry(bloodRequest).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
 
-                if (inventory != null)
-                {
-                    bloodRequest.Fulfilled = true;
-                    bloodRequest.FulfilledSource = "Inventory";
-
-                    inventory.Quantity -= createDto.Quantity;
-                    _context.BloodInventories.Update(inventory);
-                    var bloodRequestInventory = new BloodRequestInventory
-                    {
-                        BloodRequestId = bloodRequest.BloodRequestId,
-                        InventoryId = inventory.InventoryId,
-                        QuantityUnit = createDto.Quantity,
-                        QuantityAllocated = createDto.Quantity,
-                        AllocatedAt = DateTime.UtcNow,
-                        AllocatedBy = createDto.UserId ?? 1 
-                    };
-
-                    _context.BloodRequests.Add(bloodRequest);
-                    await _context.SaveChangesAsync(); 
-
-                    bloodRequestInventory.BloodRequestId = bloodRequest.BloodRequestId;
-                    _context.BloodRequestInventories.Add(bloodRequestInventory);
-                }
-                else
-                {
-                    _context.BloodRequests.Add(bloodRequest);
-                }
-
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-                var resultDto = await _context.BloodRequests
-                    .Where(br => br.BloodRequestId == bloodRequest.BloodRequestId)
-                    .GroupJoin(_context.Users,
-                        br => br.UserId,
-                        u => u.UserId,
-                        (br, u) => new { BloodRequest = br, Users = u })
-                    .SelectMany(
-                        x => x.Users.DefaultIfEmpty(),
-                        (x, u) => new { x.BloodRequest, UserName = u != null ? u.UserName : null })
-                    .Join(_context.BloodTypes,
-                        x => x.BloodRequest.BloodTypeId,
-                        bt => bt.BloodTypeId,
-                        (x, bt) => new { x.BloodRequest, x.UserName, BloodTypeName = bt.Name + bt.RhFactor })
-                    .Join(_context.BloodComponents,
-                        x => x.BloodRequest.BloodComponentId,
-                        bc => bc.BloodComponentId,
-                        (x, bc) => new BloodRequestDto
-                        {
-                            BloodRequestId = x.BloodRequest.BloodRequestId,
-                            UserId = x.BloodRequest.UserId,
-                            UserName = x.UserName,
-                            BloodTypeId = x.BloodRequest.BloodTypeId,
-                            BloodTypeName = x.BloodTypeName,
-                            BloodComponentId = x.BloodRequest.BloodComponentId,
-                            BloodComponentName = bc.Name,
-                            IsEmergency = x.BloodRequest.IsEmergency.Value,
-                            Status = x.BloodRequest.Status,
-                            CreatedAt = x.BloodRequest.CreatedAt.Value,
-                            Location = x.BloodRequest.Location,
-                            Quantity = x.BloodRequest.Quantity.Value,
-                            Fulfilled = x.BloodRequest.Fulfilled.Value,
-                            FulfilledSource = x.BloodRequest.FulfilledSource,
-                            HeightCm = x.BloodRequest.HeightCm.Value,
-                            WeightKg = x.BloodRequest.WeightKg.Value,
-                            HealthInfo = x.BloodRequest.HealthInfo
-                        })
-                    .FirstAsync();
-
-                _logger.LogInformation("PostBloodRequest: Created blood request with id={BloodRequestId}, Fulfilled={Fulfilled}",
-                    resultDto.BloodRequestId, resultDto.Fulfilled);
-
-                return CreatedAtAction(
-                    nameof(GetBloodRequest),
-                    new { id = resultDto.BloodRequestId },
-                    new { message = "Blood request created successfully.", data = resultDto });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "PostBloodRequest: Exception occurred while creating blood request");
-                await transaction.RollbackAsync();
-                return StatusCode(500, new { message = "An error occurred while creating the blood request.", detail = ex.Message });
-            }
+            return Ok(new { message = "Blood request updated successfully." });
         }
 
         // DELETE: api/BloodRequests/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteBloodRequest(int id)
         {
-            _logger.LogInformation("DeleteBloodRequest called with id={Id}", id);
-
-            var entity = await _context.BloodRequests.FindAsync(id);
-            if (entity == null)
+            var bloodRequest = await _context.BloodRequests.FindAsync(id);
+            if (bloodRequest == null)
             {
-                _logger.LogWarning("DeleteBloodRequest: Blood request with id={Id} not found or already deleted", id);
-                return NotFound(new { Message = $"Blood request with id = {id} not found or already deleted." });
+                return NotFound(new { message = "Blood request not found" });
             }
 
-            entity.Status = "cancelled";
+            // Soft delete: Mark as cancelled and fulfilled
+            bloodRequest.Status = (byte)BloodRequestStatus.Cancelled;
+            bloodRequest.Fulfilled = true;
 
-            try
-            {
-                await _context.SaveChangesAsync();
-                _logger.LogInformation("DeleteBloodRequest: Soft deleted blood request with id={Id}", id);
-                return Ok(new { Message = "Blood request deleted successfully." });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "DeleteBloodRequest: Exception occurred for id={Id}", id);
-                return StatusCode(500, new { Message = "Error deleting blood request.", Detail = ex.Message });
-            }
+            _context.Entry(bloodRequest).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Blood request soft deleted: ID = {Id}, Status = Cancelled", id);
+
+            return Ok(new { message = "Blood request deleted successfully." });
         }
     }
 }
-

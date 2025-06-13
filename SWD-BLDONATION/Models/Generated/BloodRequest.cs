@@ -15,7 +15,7 @@ public partial class BloodRequest
 
     public bool? IsEmergency { get; set; }
 
-    public string? Status { get; set; }
+    public byte? Status { get; set; }
 
     public DateTime? CreatedAt { get; set; }
 
@@ -32,6 +32,12 @@ public partial class BloodRequest
     public decimal? WeightKg { get; set; }
 
     public string? HealthInfo { get; set; }
+
+    public string? Name { get; set; }
+
+    public DateOnly? DateOfBirth { get; set; }
+
+    public string? Phone { get; set; }
 
     public virtual BloodComponent? BloodComponent { get; set; }
 
