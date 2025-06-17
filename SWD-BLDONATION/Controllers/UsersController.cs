@@ -111,7 +111,7 @@ namespace SWD_BLDONATION.Controllers
                     MedicalHistory = u.MedicalHistory,
                     BloodTypeId = u.BloodTypeId,
                     BloodComponentId = u.BloodComponentId,
-                    IsDeleted = u.IsDeleted 
+                    IsDeleted = u.IsDeleted
                 })
                 .FirstOrDefaultAsync();
 
@@ -196,9 +196,6 @@ namespace SWD_BLDONATION.Controllers
             return CreatedAtAction(nameof(GetUser), new { id = user.UserId }, userDto);
         }
 
-
-
-
         [HttpPut("{id}")]
         public async Task<IActionResult> PutUser(int id, [FromForm] UpdateUserDto dto)
         {
@@ -211,47 +208,45 @@ namespace SWD_BLDONATION.Controllers
 
             var updatedFields = new List<string>();
 
-            string? email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim();
-            string? identification = string.IsNullOrWhiteSpace(dto.Identification) ? null : dto.Identification.Trim();
-            string? password = string.IsNullOrWhiteSpace(dto.Password) ? null : dto.Password.Trim();
-
-            if (!string.IsNullOrEmpty(email) && email != user.Email)
+            if (!string.IsNullOrWhiteSpace(dto.Email) && dto.Email.Trim() != user.Email)
             {
-                var emailExists = await _context.Users.AnyAsync(u => u.Email == email && !u.IsDeleted);
+                var email = dto.Email.Trim();
+                var emailExists = await _context.Users.AnyAsync(u => u.Email == email && !u.IsDeleted && u.UserId != id);
                 if (emailExists)
                     return BadRequest(new { message = "Email đã tồn tại." });
                 user.Email = email;
                 updatedFields.Add("Email");
             }
 
-            if (!string.IsNullOrEmpty(identification) && identification != user.Identification)
+            if (!string.IsNullOrWhiteSpace(dto.Identification) && dto.Identification.Trim() != user.Identification)
             {
-                var idExists = await _context.Users.AnyAsync(u => u.Identification == identification && !u.IsDeleted);
+                var identification = dto.Identification.Trim();
+                var idExists = await _context.Users.AnyAsync(u => u.Identification == identification && !u.IsDeleted && u.UserId != id);
                 if (idExists)
                     return BadRequest(new { message = "Identification đã tồn tại." });
                 user.Identification = identification;
                 updatedFields.Add("Identification");
             }
 
-            if (dto.UserName != null && dto.UserName != user.UserName)
+            if (!string.IsNullOrWhiteSpace(dto.UserName) && dto.UserName != user.UserName)
             {
                 user.UserName = dto.UserName;
                 updatedFields.Add("UserName");
             }
 
-            if (password != null)
+            if (!string.IsNullOrWhiteSpace(dto.Password))
             {
-                user.Password = password; // hoặc hash nếu cần
+                user.Password = dto.Password.Trim(); // hoặc hash nếu cần
                 updatedFields.Add("Password");
             }
 
-            if (dto.Name != null && dto.Name != user.Name)
+            if (!string.IsNullOrWhiteSpace(dto.Name) && dto.Name != user.Name)
             {
                 user.Name = dto.Name;
                 updatedFields.Add("Name");
             }
 
-            if (dto.Phone != null && dto.Phone != user.Phone)
+            if (!string.IsNullOrWhiteSpace(dto.Phone) && dto.Phone != user.Phone)
             {
                 user.Phone = dto.Phone;
                 updatedFields.Add("Phone");
@@ -263,7 +258,7 @@ namespace SWD_BLDONATION.Controllers
                 updatedFields.Add("DateOfBirth");
             }
 
-            if (dto.Address != null && dto.Address != user.Address)
+            if (!string.IsNullOrWhiteSpace(dto.Address) && dto.Address != user.Address)
             {
                 user.Address = dto.Address;
                 updatedFields.Add("Address");
@@ -277,50 +272,52 @@ namespace SWD_BLDONATION.Controllers
 
             if (dto.RoleBit.HasValue && dto.RoleBit != user.RoleBit)
             {
-                user.RoleBit = dto.RoleBit;
+                user.RoleBit = dto.RoleBit; // 0 là hợp lệ theo mặc định
                 updatedFields.Add("RoleBit");
             }
 
-            if (dto.BloodTypeId.HasValue && dto.BloodTypeId != user.BloodTypeId)
+            if (dto.BloodTypeId.HasValue && dto.BloodTypeId > 0 && dto.BloodTypeId != user.BloodTypeId)
             {
                 user.BloodTypeId = dto.BloodTypeId;
                 updatedFields.Add("BloodTypeId");
             }
 
-            if (dto.BloodComponentId.HasValue && dto.BloodComponentId != user.BloodComponentId)
+            if (dto.BloodComponentId.HasValue && dto.BloodComponentId > 0 && dto.BloodComponentId != user.BloodComponentId)
             {
                 user.BloodComponentId = dto.BloodComponentId;
                 updatedFields.Add("BloodComponentId");
             }
 
-            if (dto.HeightCm.HasValue && dto.HeightCm != user.HeightCm)
+            if (dto.HeightCm.HasValue && dto.HeightCm > 0 && dto.HeightCm != user.HeightCm)
             {
                 user.HeightCm = dto.HeightCm;
                 updatedFields.Add("HeightCm");
             }
 
-            if (dto.WeightKg.HasValue && dto.WeightKg != user.WeightKg)
+            if (dto.WeightKg.HasValue && dto.WeightKg > 0 && dto.WeightKg != user.WeightKg)
             {
                 user.WeightKg = dto.WeightKg;
                 updatedFields.Add("WeightKg");
             }
 
-            if (dto.MedicalHistory != null && dto.MedicalHistory != user.MedicalHistory)
+            if (!string.IsNullOrWhiteSpace(dto.MedicalHistory) && dto.MedicalHistory != user.MedicalHistory)
             {
                 user.MedicalHistory = dto.MedicalHistory;
                 updatedFields.Add("MedicalHistory");
             }
 
-            _context.Entry(user).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
+            if (updatedFields.Any())
+            {
+                _context.Entry(user).State = EntityState.Modified;
+                await _context.SaveChangesAsync();
+            }
 
             return Ok(new
             {
-                message = "Cập nhật thành công.",
-                updatedFields = updatedFields.Count > 0 ? updatedFields : new List<string> { "Không có trường nào được cập nhật." }
+                message = updatedFields.Any() ? "Cập nhật thành công." : "Không có trường nào được cập nhật.",
+                updatedFields = updatedFields.Any() ? updatedFields : new List<string>()
             });
         }
-
 
 
         // DELETE: api/Users/5 (soft delete)
@@ -414,8 +411,8 @@ namespace SWD_BLDONATION.Controllers
                 })
                 .ToListAsync();
 
-                    var totalCount = await dbQuery.CountAsync();
-                    var totalPages = (int)Math.Ceiling(totalCount / (double)query.PageSize);
+            var totalCount = await dbQuery.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalCount / (double)query.PageSize);
 
             return Ok(new
             {

@@ -247,5 +247,89 @@ namespace SWD_BLDONATION.Controllers
 
             return Ok(new { message = "Blood request deleted successfully." });
         }
+
+        [HttpGet("ByUser/{userId}")]
+        public async Task<ActionResult<object>> GetBloodRequestsByUser(int userId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            _logger.LogInformation("GetBloodRequestsByUser called with userId={UserId}, page={Page}, pageSize={PageSize}", userId, page, pageSize);
+
+            if (userId < 1 || page < 1 || pageSize < 1)
+            {
+                _logger.LogWarning("Invalid userId, page, or pageSize: userId={UserId}, page={Page}, pageSize={PageSize}", userId, page, pageSize);
+                return BadRequest(new { Message = "Invalid userId, page, or pageSize." });
+            }
+
+            var query = _context.BloodRequests
+                .Where(br => br.UserId == userId)
+                .GroupJoin(_context.Users,
+                    br => br.UserId,
+                    u => u.UserId,
+                    (br, u) => new { BloodRequest = br, Users = u })
+                .SelectMany(
+                    x => x.Users.DefaultIfEmpty(),
+                    (x, u) => new {
+                        x.BloodRequest,
+                        Name = u != null ? u.Name : null,
+                        DateOfBirth = u != null ? u.DateOfBirth : (DateOnly?)null,
+                        Phone = u != null ? u.Phone : null
+                    })
+                .Join(_context.BloodTypes,
+                    x => x.BloodRequest.BloodTypeId,
+                    bt => bt.BloodTypeId,
+                    (x, bt) => new { x.BloodRequest, x.Name, x.DateOfBirth, x.Phone, BloodTypeName = bt.Name + bt.RhFactor })
+                .Join(_context.BloodComponents,
+                    x => x.BloodRequest.BloodComponentId,
+                    bc => bc.BloodComponentId,
+                    (x, bc) => new { x.BloodRequest, x.Name, x.DateOfBirth, x.Phone, x.BloodTypeName, BloodComponentName = bc.Name });
+
+            var requests = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(x => new BloodRequestDto
+                {
+                    BloodRequestId = x.BloodRequest.BloodRequestId,
+                    UserId = x.BloodRequest.UserId,
+                    Name = x.Name,
+                    DateOfBirth = x.DateOfBirth,
+                    Phone = x.Phone,
+                    BloodTypeId = x.BloodRequest.BloodTypeId ?? 0,
+                    BloodTypeName = x.BloodTypeName,
+                    BloodComponentId = x.BloodRequest.BloodComponentId ?? 0,
+                    BloodComponentName = x.BloodComponentName,
+                    IsEmergency = x.BloodRequest.IsEmergency.HasValue ? x.BloodRequest.IsEmergency.Value : false,
+                    Status = new StatusDto
+                    {
+                        Id = (byte)BloodRequestStatus.Pending,
+                        Name = BloodRequestStatus.Pending.ToString()
+                    },
+                    CreatedAt = x.BloodRequest.CreatedAt.HasValue ? x.BloodRequest.CreatedAt.Value : DateTime.MinValue,
+                    Location = x.BloodRequest.Location,
+                    Quantity = x.BloodRequest.Quantity.HasValue ? (int)x.BloodRequest.Quantity.Value : 0,
+                    Fulfilled = x.BloodRequest.Fulfilled.HasValue ? x.BloodRequest.Fulfilled.Value : false,
+                    FulfilledSource = x.BloodRequest.FulfilledSource,
+                    HeightCm = x.BloodRequest.HeightCm.HasValue ? (int)x.BloodRequest.HeightCm.Value : 0,
+                    WeightKg = x.BloodRequest.WeightKg.HasValue ? (int)x.BloodRequest.WeightKg.Value : 0,
+                    HealthInfo = x.BloodRequest.HealthInfo
+                })
+                .ToListAsync();
+
+            var totalCount = await query.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+            _logger.LogInformation("GetBloodRequestsByUser returned {Count} items for userId={UserId}", requests.Count, userId);
+
+            return Ok(new
+            {
+                Message = $"Retrieved blood requests for userId={userId} successfully.",
+                Data = new
+                {
+                    Requests = requests,
+                    TotalCount = totalCount,
+                    TotalPages = totalPages,
+                    CurrentPage = page,
+                    PageSize = pageSize
+                }
+            });
+        }
     }
 }

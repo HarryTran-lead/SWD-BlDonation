@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SWD_BLDONATION.DTOs.BloodRequestDTOs;
 using SWD_BLDONATION.DTOs.DonationRequestDTOs;
 using SWD_BLDONATION.Models.Generated;
 using System;
@@ -176,6 +177,31 @@ namespace SWD_BLDONATION.Controllers
                 TotalPages = totalPages,
                 CurrentPage = query.Page,
                 PageSize = query.PageSize
+            });
+        }
+
+        [HttpGet("user/{userId}")]
+        public async Task<ActionResult<object>> GetRequestsByUserId(int userId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            var query = _context.DonationRequests.Where(u => u.UserId == userId).AsQueryable();
+
+            var totalCount = await query.Where(u => u.UserId == userId).CountAsync();
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+            var donationRequests = await query
+                .Where(u => u.UserId == userId)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(dr => _mapper.Map<DonationRequestDto>(dr))
+                .ToListAsync();
+
+            return Ok(new
+            {
+                Data = donationRequests,
+                TotalCount = totalCount,
+                TotalPages = totalPages,
+                CurrentPage = page,
+                PageSize = pageSize
             });
         }
 
