@@ -5,7 +5,6 @@ using SWD_BLDONATION.DTOs.BloodRequestDTOs;
 using SWD_BLDONATION.DTOs.DonationRequestDTOs;
 using SWD_BLDONATION.Models.Generated;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -65,7 +64,7 @@ namespace SWD_BLDONATION.Controllers
 
         // PUT: api/DonationRequests/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutDonationRequest(int id, UpdateDonationRequestDto updateDto)
+        public async Task<IActionResult> PutDonationRequest(int id, [FromForm] UpdateDonationRequestDto updateDto)
         {
             if (id != updateDto.DonateRequestId)
             {
@@ -102,7 +101,7 @@ namespace SWD_BLDONATION.Controllers
 
         // POST: api/DonationRequests
         [HttpPost]
-        public async Task<ActionResult<DonationRequestDto>> PostDonationRequest(CreateDonationRequestDto createDto)
+        public async Task<ActionResult<DonationRequestDto>> PostDonationRequest([FromForm] CreateDonationRequestDto createDto)
         {
             if (!ModelState.IsValid)
             {
@@ -180,6 +179,7 @@ namespace SWD_BLDONATION.Controllers
             });
         }
 
+        // GET: api/DonationRequests/user/{userId}
         [HttpGet("user/{userId}")]
         public async Task<ActionResult<object>> GetRequestsByUserId(int userId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
@@ -204,6 +204,5 @@ namespace SWD_BLDONATION.Controllers
                 PageSize = pageSize
             });
         }
-
     }
 }

@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using SWD_BLDONATION.DTOs.BloodRequestDTOs;
 using SWD_BLDONATION.Models.Generated;
-using SWD_BLDONATION.Models.Enums; // Import BloodRequestStatus enum
+using SWD_BLDONATION.Models.Enums;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -43,9 +43,10 @@ namespace SWD_BLDONATION.Controllers
                     (br, u) => new { BloodRequest = br, Users = u })
                 .SelectMany(
                     x => x.Users.DefaultIfEmpty(),
-                    (x, u) => new {
+                    (x, u) => new
+                    {
                         x.BloodRequest,
-                        Name = u != null ? u.Name : null, // Use Name instead of UserName
+                        Name = u != null ? u.Name : null,
                         DateOfBirth = u != null ? u.DateOfBirth : (DateOnly?)null,
                         Phone = u != null ? u.Phone : null
                     })
@@ -65,26 +66,26 @@ namespace SWD_BLDONATION.Controllers
                 {
                     BloodRequestId = x.BloodRequest.BloodRequestId,
                     UserId = x.BloodRequest.UserId,
-                    Name = x.Name,  // Now correctly handled as Name
-                    DateOfBirth = x.DateOfBirth,  // Now correctly handled for null
-                    Phone = x.Phone,  // Now correctly handled for null
-                    BloodTypeId = x.BloodRequest.BloodTypeId ?? 0,  // Use 0 if BloodTypeId is null
+                    Name = x.Name,
+                    DateOfBirth = x.DateOfBirth,
+                    Phone = x.Phone,
+                    BloodTypeId = x.BloodRequest.BloodTypeId ?? 0,
                     BloodTypeName = x.BloodTypeName,
-                    BloodComponentId = x.BloodRequest.BloodComponentId ?? 0,  // Use 0 if BloodComponentId is null
+                    BloodComponentId = x.BloodRequest.BloodComponentId ?? 0,
                     BloodComponentName = x.BloodComponentName,
                     IsEmergency = x.BloodRequest.IsEmergency.HasValue ? x.BloodRequest.IsEmergency.Value : false,
                     Status = new StatusDto
                     {
-                        Id = (byte)BloodRequestStatus.Pending, // Default to Pending (0)
-                        Name = BloodRequestStatus.Pending.ToString() // Convert enum to string
+                        Id = (byte)BloodRequestStatus.Pending,
+                        Name = BloodRequestStatus.Pending.ToString()
                     },
                     CreatedAt = x.BloodRequest.CreatedAt.HasValue ? x.BloodRequest.CreatedAt.Value : DateTime.MinValue,
                     Location = x.BloodRequest.Location,
-                    Quantity = x.BloodRequest.Quantity.HasValue ? (int)x.BloodRequest.Quantity.Value : 0, // Handle nullable decimal to int
+                    Quantity = x.BloodRequest.Quantity.HasValue ? (int)x.BloodRequest.Quantity.Value : 0,
                     Fulfilled = x.BloodRequest.Fulfilled.HasValue ? x.BloodRequest.Fulfilled.Value : false,
                     FulfilledSource = x.BloodRequest.FulfilledSource,
-                    HeightCm = x.BloodRequest.HeightCm.HasValue ? (int)x.BloodRequest.HeightCm.Value : 0, // Handle nullable decimal to int
-                    WeightKg = x.BloodRequest.WeightKg.HasValue ? (int)x.BloodRequest.WeightKg.Value : 0, // Handle nullable decimal to int
+                    HeightCm = x.BloodRequest.HeightCm.HasValue ? (int)x.BloodRequest.HeightCm.Value : 0,
+                    WeightKg = x.BloodRequest.WeightKg.HasValue ? (int)x.BloodRequest.WeightKg.Value : 0,
                     HealthInfo = x.BloodRequest.HealthInfo
                 })
                 .ToListAsync();
@@ -108,69 +109,9 @@ namespace SWD_BLDONATION.Controllers
             });
         }
 
-        // GET: api/BloodRequests/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<object>> GetBloodRequest(int id)
-        {
-            _logger.LogInformation("GetBloodRequest called with id={Id}", id);
-
-            var request = await _context.BloodRequests
-                .Where(br => br.BloodRequestId == id)
-                .GroupJoin(_context.Users,
-                    br => br.UserId,
-                    u => u.UserId,
-                    (br, u) => new { BloodRequest = br, Users = u })
-                .SelectMany(
-                    x => x.Users.DefaultIfEmpty(),
-                    (x, u) => new { x.BloodRequest, Name = u != null ? u.Name : null, DateOfBirth = u != null ? u.DateOfBirth : (DateOnly?)null, Phone = u != null ? u.Phone : null })
-                .Join(_context.BloodTypes,
-                    x => x.BloodRequest.BloodTypeId,
-                    bt => bt.BloodTypeId,
-                    (x, bt) => new { x.BloodRequest, x.Name, x.DateOfBirth, x.Phone, BloodTypeName = bt.Name + bt.RhFactor })
-                .Join(_context.BloodComponents,
-                    x => x.BloodRequest.BloodComponentId,
-                    bc => bc.BloodComponentId,
-                    (x, bc) => new BloodRequestDto
-                    {
-                        BloodRequestId = x.BloodRequest.BloodRequestId,
-                        UserId = x.BloodRequest.UserId,
-                        Name = x.Name,  // Include Name
-                        DateOfBirth = x.DateOfBirth,  // Include DateOfBirth
-                        Phone = x.Phone,  // Include Phone
-                        BloodTypeId = x.BloodRequest.BloodTypeId ?? 0,  // Use 0 if BloodTypeId is null
-                        BloodTypeName = x.BloodTypeName,
-                        BloodComponentId = x.BloodRequest.BloodComponentId ?? 0,  // Use 0 if BloodComponentId is null
-                        BloodComponentName = bc.Name,
-                        IsEmergency = x.BloodRequest.IsEmergency.HasValue ? x.BloodRequest.IsEmergency.Value : false,
-                        Status = new StatusDto
-                        {
-                            Id = (byte)BloodRequestStatus.Pending,
-                            Name = BloodRequestStatus.Pending.ToString()
-                        },
-                        CreatedAt = x.BloodRequest.CreatedAt.HasValue ? x.BloodRequest.CreatedAt.Value : DateTime.MinValue,
-                        Location = x.BloodRequest.Location,
-                        Quantity = x.BloodRequest.Quantity.HasValue ? (int)x.BloodRequest.Quantity.Value : 0, // Handle nullable decimal to int
-                        Fulfilled = x.BloodRequest.Fulfilled.HasValue ? x.BloodRequest.Fulfilled.Value : false,
-                        FulfilledSource = x.BloodRequest.FulfilledSource,
-                        HeightCm = x.BloodRequest.HeightCm.HasValue ? (int)x.BloodRequest.HeightCm.Value : 0, // Handle nullable decimal to int
-                        WeightKg = x.BloodRequest.WeightKg.HasValue ? (int)x.BloodRequest.WeightKg.Value : 0, // Handle nullable decimal to int
-                        HealthInfo = x.BloodRequest.HealthInfo
-                    })
-                .FirstOrDefaultAsync();
-
-            if (request == null)
-            {
-                _logger.LogWarning("GetBloodRequest: Blood request with id={Id} not found", id);
-                return NotFound(new { Message = $"Blood request with id = {id} not found." });
-            }
-
-            _logger.LogInformation("GetBloodRequest: Found blood request with id={Id}", id);
-            return Ok(new { Message = "Retrieved blood request successfully.", Data = request });
-        }
-
         // POST: api/BloodRequests
         [HttpPost]
-        public async Task<ActionResult<object>> PostBloodRequest([FromBody] CreateBloodRequestDto dto)
+        public async Task<ActionResult<object>> PostBloodRequest([FromForm] CreateBloodRequestDto dto)
         {
             _logger.LogInformation("PostBloodRequest called with data: {@CreateDto}", dto);
 
@@ -196,12 +137,12 @@ namespace SWD_BLDONATION.Controllers
             _context.BloodRequests.Add(bloodRequest);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetBloodRequest), new { id = bloodRequest.BloodRequestId }, bloodRequest);
+            return CreatedAtAction(nameof(GetBloodRequests), new { id = bloodRequest.BloodRequestId }, bloodRequest);
         }
 
         // PUT: api/BloodRequests/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutBloodRequest(int id, [FromBody] UpdateBloodRequestDto dto)
+        public async Task<IActionResult> PutBloodRequest(int id, [FromForm] UpdateBloodRequestDto dto)
         {
             var bloodRequest = await _context.BloodRequests.FindAsync(id);
             if (bloodRequest == null)
@@ -248,6 +189,7 @@ namespace SWD_BLDONATION.Controllers
             return Ok(new { message = "Blood request deleted successfully." });
         }
 
+        // GET: api/BloodRequests/ByUser/{userId}
         [HttpGet("ByUser/{userId}")]
         public async Task<ActionResult<object>> GetBloodRequestsByUser(int userId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
@@ -267,7 +209,8 @@ namespace SWD_BLDONATION.Controllers
                     (br, u) => new { BloodRequest = br, Users = u })
                 .SelectMany(
                     x => x.Users.DefaultIfEmpty(),
-                    (x, u) => new {
+                    (x, u) => new
+                    {
                         x.BloodRequest,
                         Name = u != null ? u.Name : null,
                         DateOfBirth = u != null ? u.DateOfBirth : (DateOnly?)null,
