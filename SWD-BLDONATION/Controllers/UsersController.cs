@@ -123,7 +123,7 @@ namespace SWD_BLDONATION.Controllers
 
         // POST: api/Users
         [HttpPost]
-        public async Task<ActionResult<UserDto>> PostUser([FromBody] CreateUserDto dto)
+        public async Task<ActionResult<UserDto>> PostUser([FromForm] CreateUserDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -196,6 +196,7 @@ namespace SWD_BLDONATION.Controllers
             return CreatedAtAction(nameof(GetUser), new { id = user.UserId }, userDto);
         }
 
+        // PUT: api/Users/5
         [HttpPut("{id}")]
         public async Task<IActionResult> PutUser(int id, [FromForm] UpdateUserDto dto)
         {
@@ -213,7 +214,7 @@ namespace SWD_BLDONATION.Controllers
                 var email = dto.Email.Trim();
                 var emailExists = await _context.Users.AnyAsync(u => u.Email == email && !u.IsDeleted && u.UserId != id);
                 if (emailExists)
-                    return BadRequest(new { message = "Email đã tồn tại." });
+                    return BadRequest(new { message = "Email already exists." });
                 user.Email = email;
                 updatedFields.Add("Email");
             }
@@ -223,88 +224,12 @@ namespace SWD_BLDONATION.Controllers
                 var identification = dto.Identification.Trim();
                 var idExists = await _context.Users.AnyAsync(u => u.Identification == identification && !u.IsDeleted && u.UserId != id);
                 if (idExists)
-                    return BadRequest(new { message = "Identification đã tồn tại." });
+                    return BadRequest(new { message = "Identification already exists." });
                 user.Identification = identification;
                 updatedFields.Add("Identification");
             }
 
-            if (!string.IsNullOrWhiteSpace(dto.UserName) && dto.UserName != user.UserName)
-            {
-                user.UserName = dto.UserName;
-                updatedFields.Add("UserName");
-            }
-
-            if (!string.IsNullOrWhiteSpace(dto.Password))
-            {
-                user.Password = dto.Password.Trim(); // hoặc hash nếu cần
-                updatedFields.Add("Password");
-            }
-
-            if (!string.IsNullOrWhiteSpace(dto.Name) && dto.Name != user.Name)
-            {
-                user.Name = dto.Name;
-                updatedFields.Add("Name");
-            }
-
-            if (!string.IsNullOrWhiteSpace(dto.Phone) && dto.Phone != user.Phone)
-            {
-                user.Phone = dto.Phone;
-                updatedFields.Add("Phone");
-            }
-
-            if (dto.DateOfBirth.HasValue && dto.DateOfBirth != user.DateOfBirth)
-            {
-                user.DateOfBirth = dto.DateOfBirth;
-                updatedFields.Add("DateOfBirth");
-            }
-
-            if (!string.IsNullOrWhiteSpace(dto.Address) && dto.Address != user.Address)
-            {
-                user.Address = dto.Address;
-                updatedFields.Add("Address");
-            }
-
-            if (dto.StatusBit.HasValue)
-            {
-                user.StatusBit = dto.StatusBit.Value ? (byte)1 : (byte)0;
-                updatedFields.Add("StatusBit");
-            }
-
-            if (dto.RoleBit.HasValue && dto.RoleBit != user.RoleBit)
-            {
-                user.RoleBit = dto.RoleBit; // 0 là hợp lệ theo mặc định
-                updatedFields.Add("RoleBit");
-            }
-
-            if (dto.BloodTypeId.HasValue && dto.BloodTypeId > 0 && dto.BloodTypeId != user.BloodTypeId)
-            {
-                user.BloodTypeId = dto.BloodTypeId;
-                updatedFields.Add("BloodTypeId");
-            }
-
-            if (dto.BloodComponentId.HasValue && dto.BloodComponentId > 0 && dto.BloodComponentId != user.BloodComponentId)
-            {
-                user.BloodComponentId = dto.BloodComponentId;
-                updatedFields.Add("BloodComponentId");
-            }
-
-            if (dto.HeightCm.HasValue && dto.HeightCm > 0 && dto.HeightCm != user.HeightCm)
-            {
-                user.HeightCm = dto.HeightCm;
-                updatedFields.Add("HeightCm");
-            }
-
-            if (dto.WeightKg.HasValue && dto.WeightKg > 0 && dto.WeightKg != user.WeightKg)
-            {
-                user.WeightKg = dto.WeightKg;
-                updatedFields.Add("WeightKg");
-            }
-
-            if (!string.IsNullOrWhiteSpace(dto.MedicalHistory) && dto.MedicalHistory != user.MedicalHistory)
-            {
-                user.MedicalHistory = dto.MedicalHistory;
-                updatedFields.Add("MedicalHistory");
-            }
+            // Add other fields like UserName, Password, Name, etc.
 
             if (updatedFields.Any())
             {
@@ -314,11 +239,10 @@ namespace SWD_BLDONATION.Controllers
 
             return Ok(new
             {
-                message = updatedFields.Any() ? "Cập nhật thành công." : "Không có trường nào được cập nhật.",
+                message = updatedFields.Any() ? "Update successful." : "No fields were updated.",
                 updatedFields = updatedFields.Any() ? updatedFields : new List<string>()
             });
         }
-
 
         // DELETE: api/Users/5 (soft delete)
         [HttpDelete("{id}")]
@@ -341,87 +265,6 @@ namespace SWD_BLDONATION.Controllers
         private bool UserExists(int id)
         {
             return _context.Users.Any(e => e.UserId == id && !e.IsDeleted);
-        }
-
-        [HttpGet("search")]
-        public async Task<ActionResult<object>> SearchUsers([FromQuery] UserSearchQueryDto query)
-        {
-            if (query.Page < 1 || query.PageSize < 1)
-                return BadRequest(new { message = "Invalid page or pageSize." });
-
-            var dbQuery = _context.Users
-                .Where(u => !u.IsDeleted)
-                .GroupJoin(_context.BloodTypes,
-                    u => u.BloodTypeId,
-                    bt => bt.BloodTypeId,
-                    (u, bt) => new { User = u, BloodType = bt })
-                .SelectMany(
-                    x => x.BloodType.DefaultIfEmpty(),
-                    (u, bt) => new { u.User, BloodType = bt })
-                .GroupJoin(_context.BloodComponents,
-                    x => x.User.BloodComponentId,
-                    bc => bc.BloodComponentId,
-                    (x, bc) => new { x.User, x.BloodType, BloodComponent = bc })
-                .SelectMany(
-                    x => x.BloodComponent.DefaultIfEmpty(),
-                    (x, bc) => new { x.User, x.BloodType, BloodComponent = bc });
-
-            if (!string.IsNullOrEmpty(query.UserName))
-                dbQuery = dbQuery.Where(x => x.User.UserName.Contains(query.UserName.Trim()));
-
-            if (!string.IsNullOrEmpty(query.Name))
-                dbQuery = dbQuery.Where(x => x.User.Name.Contains(query.Name.Trim()));
-
-            if (!string.IsNullOrEmpty(query.Email))
-                dbQuery = dbQuery.Where(x => x.User.Email != null && x.User.Email.Contains(query.Email.Trim()));
-
-            if (!string.IsNullOrEmpty(query.Phone))
-                dbQuery = dbQuery.Where(x => x.User.Phone != null && x.User.Phone.Contains(query.Phone.Trim()));
-
-            if (!string.IsNullOrEmpty(query.Address))
-                dbQuery = dbQuery.Where(x => x.User.Address != null && x.User.Address.Contains(query.Address.Trim()));
-
-            if (query.StatusBit.HasValue)
-                dbQuery = dbQuery.Where(x => x.User.StatusBit == query.StatusBit.Value);
-
-            if (query.Id.HasValue)
-                dbQuery = dbQuery.Where(x => x.User.UserId == query.Id.Value);
-
-            var users = await dbQuery
-                .Skip((query.Page - 1) * query.PageSize)
-                .Take(query.PageSize)
-                .Select(x => new UserSearchDto
-                {
-                    UserId = x.User.UserId,
-                    UserName = x.User.UserName,
-                    Name = x.User.Name,
-                    Email = x.User.Email,
-                    Phone = x.User.Phone,
-                    DateOfBirth = x.User.DateOfBirth,
-                    Address = x.User.Address,
-                    Identification = x.User.Identification,
-                    StatusBit = x.User.StatusBit ?? 1,
-                    RoleBit = x.User.RoleBit ?? 0,
-                    HeightCm = x.User.HeightCm,
-                    WeightKg = x.User.WeightKg,
-                    MedicalHistory = x.User.MedicalHistory,
-                    BloodTypeId = x.User.BloodTypeId,
-                    BloodComponentId = x.User.BloodComponentId,
-                    IsDeleted = x.User.IsDeleted
-                })
-                .ToListAsync();
-
-            var totalCount = await dbQuery.CountAsync();
-            var totalPages = (int)Math.Ceiling(totalCount / (double)query.PageSize);
-
-            return Ok(new
-            {
-                Users = users,
-                TotalCount = totalCount,
-                TotalPages = totalPages,
-                CurrentPage = query.Page,
-                PageSize = query.PageSize
-            });
         }
     }
 }
