@@ -29,17 +29,9 @@ public partial class DonationRequest
 
     public decimal? WeightKg { get; set; }
 
-    public string? MedicalHistory { get; set; }
-
-    public string? GeneralHealthStatus { get; set; }
-
-    public decimal? HemoglobinLevel { get; set; }
-
     public DateOnly? LastDonationDate { get; set; }
 
-    public string? BloodPressure { get; set; }
-
-    public int? PulseRate { get; set; }
+    public string? HealthInfo { get; set; }
 
     public virtual BloodComponent? BloodComponent { get; set; }
 

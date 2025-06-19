@@ -18,12 +18,10 @@ namespace SWD_BLDONATION.DTOs.DonationRequestDTOs
         public string? Note { get; set; }
         public decimal? HeightCm { get; set; }
         public decimal? WeightKg { get; set; }
-        public string? MedicalHistory { get; set; }
-        public string? GeneralHealthStatus { get; set; }
-        public decimal? HemoglobinLevel { get; set; }
         public DateOnly? LastDonationDate { get; set; }
-        public string? BloodPressure { get; set; }
-        public int? PulseRate { get; set; }
+        public string? HealthInfo { get; set; }
+
+        // Navigation properties (DTO objects)
         public BloodTypeDto? BloodType { get; set; }
         public BloodComponentDto? BloodComponent { get; set; }
         public UserDto? User { get; set; }

@@ -12,12 +12,10 @@
         public string? Note { get; set; }
         public decimal? HeightCm { get; set; }
         public decimal? WeightKg { get; set; }
-        public string? MedicalHistory { get; set; }
-        public string? GeneralHealthStatus { get; set; }
-        public decimal? HemoglobinLevel { get; set; }
+        public string? HealthInfo { get; set; }  // Renamed from 'MedicalHistory' for consistency with model
         public DateOnly? LastDonationDate { get; set; }
-        public string? BloodPressure { get; set; }
-        public int? PulseRate { get; set; }
-    }
 
+        // Properties like HemoglobinLevel, BloodPressure, and PulseRate have been removed
+        // since they are not in the original DonationRequest model
+    }
 }

@@ -262,37 +262,26 @@ public partial class BloodDonationDbContext : DbContext
 
             entity.Property(e => e.DonateRequestId).HasColumnName("donate_request_id");
             entity.Property(e => e.BloodComponentId).HasColumnName("blood_component_id");
-            entity.Property(e => e.BloodPressure)
-                .HasMaxLength(10)
-                .IsUnicode(false)
-                .HasColumnName("blood_pressure");
             entity.Property(e => e.BloodTypeId).HasColumnName("blood_type_id");
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime")
                 .HasColumnName("created_at");
-            entity.Property(e => e.GeneralHealthStatus)
+            entity.Property(e => e.HealthInfo)
                 .HasColumnType("text")
-                .HasColumnName("general_health_status");
+                .HasColumnName("health_info");
             entity.Property(e => e.HeightCm)
                 .HasColumnType("decimal(5, 2)")
                 .HasColumnName("height_cm");
-            entity.Property(e => e.HemoglobinLevel)
-                .HasColumnType("decimal(4, 2)")
-                .HasColumnName("hemoglobin_level");
             entity.Property(e => e.LastDonationDate).HasColumnName("last_donation_date");
             entity.Property(e => e.Location)
                 .HasMaxLength(255)
                 .IsUnicode(false)
                 .HasColumnName("location");
-            entity.Property(e => e.MedicalHistory)
-                .HasColumnType("text")
-                .HasColumnName("medical_history");
             entity.Property(e => e.Note)
                 .HasColumnType("text")
                 .HasColumnName("note");
             entity.Property(e => e.PreferredDate).HasColumnName("preferred_date");
-            entity.Property(e => e.PulseRate).HasColumnName("pulse_rate");
             entity.Property(e => e.Quantity).HasColumnName("quantity");
             entity.Property(e => e.Status)
                 .HasMaxLength(10)

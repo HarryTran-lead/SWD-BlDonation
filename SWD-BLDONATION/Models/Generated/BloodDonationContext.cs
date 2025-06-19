@@ -256,67 +256,45 @@ public partial class BloodDonationContext : DbContext
                 .HasForeignKey(d => d.UserId)
                 .HasConstraintName("FK__DonationH__user___44FF419A");
         });
-
         modelBuilder.Entity<DonationRequest>(entity =>
         {
             entity.HasKey(e => e.DonateRequestId).HasName("PK__Donation__D517757ABCD67DE3");
-
             entity.ToTable("DonationRequest");
 
             entity.Property(e => e.DonateRequestId).HasColumnName("donate_request_id");
-            entity.Property(e => e.BloodComponentId).HasColumnName("blood_component_id");
-            entity.Property(e => e.BloodPressure)
-                .HasMaxLength(10)
-                .IsUnicode(false)
-                .HasColumnName("blood_pressure");
+            entity.Property(e => e.UserId).HasColumnName("user_id");  // Check this column name
             entity.Property(e => e.BloodTypeId).HasColumnName("blood_type_id");
-            entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("(getdate())")
-                .HasColumnType("datetime")
-                .HasColumnName("created_at");
-            entity.Property(e => e.GeneralHealthStatus)
-                .HasColumnType("text")
-                .HasColumnName("general_health_status");
-            entity.Property(e => e.HeightCm)
-                .HasColumnType("decimal(5, 2)")
-                .HasColumnName("height_cm");
-            entity.Property(e => e.HemoglobinLevel)
-                .HasColumnType("decimal(4, 2)")
-                .HasColumnName("hemoglobin_level");
-            entity.Property(e => e.LastDonationDate).HasColumnName("last_donation_date");
-            entity.Property(e => e.Location)
-                .HasMaxLength(255)
-                .IsUnicode(false)
-                .HasColumnName("location");
-            entity.Property(e => e.MedicalHistory)
-                .HasColumnType("text")
-                .HasColumnName("medical_history");
-            entity.Property(e => e.Note)
-                .HasColumnType("text")
-                .HasColumnName("note");
+            entity.Property(e => e.BloodComponentId).HasColumnName("blood_component_id");
             entity.Property(e => e.PreferredDate).HasColumnName("preferred_date");
-            entity.Property(e => e.PulseRate).HasColumnName("pulse_rate");
-            entity.Property(e => e.Quantity).HasColumnName("quantity");
             entity.Property(e => e.Status)
                 .HasMaxLength(10)
                 .IsUnicode(false)
                 .HasColumnName("status");
-            entity.Property(e => e.UserId).HasColumnName("user_id");
-            entity.Property(e => e.WeightKg)
-                .HasColumnType("decimal(5, 2)")
-                .HasColumnName("weight_kg");
+            entity.Property(e => e.Location)
+                .HasMaxLength(255)
+                .IsUnicode(false)
+                .HasColumnName("location");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.Quantity).HasColumnName("quantity");
+            entity.Property(e => e.Note).HasColumnName("note");
+            entity.Property(e => e.HeightCm).HasColumnName("height_cm");
+            entity.Property(e => e.WeightKg).HasColumnName("weight_kg");
+            entity.Property(e => e.LastDonationDate).HasColumnName("last_donation_date");
+            entity.Property(e => e.HealthInfo).HasColumnName("health_info");
 
-            entity.HasOne(d => d.BloodComponent).WithMany(p => p.DonationRequests)
-                .HasForeignKey(d => d.BloodComponentId)
-                .HasConstraintName("FK__DonationR__blood__4CA06362");
-
-            entity.HasOne(d => d.BloodType).WithMany(p => p.DonationRequests)
-                .HasForeignKey(d => d.BloodTypeId)
-                .HasConstraintName("FK__DonationR__blood__4BAC3F29");
-
-            entity.HasOne(d => d.User).WithMany(p => p.DonationRequests)
+            // Ensure proper relationships
+            entity.HasOne(d => d.User)
+                .WithMany(p => p.DonationRequests)
                 .HasForeignKey(d => d.UserId)
                 .HasConstraintName("FK__DonationR__user___4AB81AF0");
+            entity.HasOne(d => d.BloodType)
+                .WithMany(p => p.DonationRequests)
+                .HasForeignKey(d => d.BloodTypeId)
+                .HasConstraintName("FK__DonationR__blood__4BAC3F29");
+            entity.HasOne(d => d.BloodComponent)
+                .WithMany(p => p.DonationRequests)
+                .HasForeignKey(d => d.BloodComponentId)
+                .HasConstraintName("FK__DonationR__blood__4CA06362");
         });
 
         modelBuilder.Entity<Notification>(entity =>

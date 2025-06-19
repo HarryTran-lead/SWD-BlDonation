@@ -64,7 +64,7 @@ namespace SWD_BLDONATION.Controllers
 
         // PUT: api/DonationRequests/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutDonationRequest(int id, [FromForm] UpdateDonationRequestDto updateDto)
+        public async Task<IActionResult> PutDonationRequest(int id, [FromBody] UpdateDonationRequestDto updateDto)
         {
             if (id != updateDto.DonateRequestId)
             {
@@ -101,7 +101,7 @@ namespace SWD_BLDONATION.Controllers
 
         // POST: api/DonationRequests
         [HttpPost]
-        public async Task<ActionResult<DonationRequestDto>> PostDonationRequest([FromForm] CreateDonationRequestDto createDto)
+        public async Task<ActionResult<DonationRequestDto>> PostDonationRequest([FromBody] CreateDonationRequestDto createDto)
         {
             if (!ModelState.IsValid)
             {
@@ -159,7 +159,7 @@ namespace SWD_BLDONATION.Controllers
             if (query.QuantityMax.HasValue)
                 dbQuery = dbQuery.Where(dr => dr.Quantity <= query.QuantityMax.Value);
 
-            // Phân trang đúng cách
+            // Pagination logic
             var totalCount = await dbQuery.CountAsync();
             var totalPages = (int)Math.Ceiling(totalCount / (double)query.PageSize);
 
@@ -185,11 +185,10 @@ namespace SWD_BLDONATION.Controllers
         {
             var query = _context.DonationRequests.Where(u => u.UserId == userId).AsQueryable();
 
-            var totalCount = await query.Where(u => u.UserId == userId).CountAsync();
+            var totalCount = await query.CountAsync();
             var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
             var donationRequests = await query
-                .Where(u => u.UserId == userId)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(dr => _mapper.Map<DonationRequestDto>(dr))
