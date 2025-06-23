@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Drawing.Printing;
 
 namespace SWD_BLDONATION.Controllers
 {
@@ -189,19 +190,19 @@ namespace SWD_BLDONATION.Controllers
             return Ok(new { message = "Blood request deleted successfully." });
         }
 
-        // GET: api/BloodRequests/ByUser/{userId}
         [HttpGet("ByUser/{userId}")]
-        public async Task<ActionResult<object>> GetBloodRequestsByUser(int userId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        public async Task<ActionResult<object>> GetBloodRequestsByUser(
+    int userId,
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 10,
+    [FromQuery] string? keyword = null)
         {
-            _logger.LogInformation("GetBloodRequestsByUser called with userId={UserId}, page={Page}, pageSize={PageSize}", userId, page, pageSize);
-
             if (userId < 1 || page < 1 || pageSize < 1)
             {
-                _logger.LogWarning("Invalid userId, page, or pageSize: userId={UserId}, page={Page}, pageSize={PageSize}", userId, page, pageSize);
                 return BadRequest(new { Message = "Invalid userId, page, or pageSize." });
             }
 
-            var query = _context.BloodRequests
+            var baseQuery = _context.BloodRequests
                 .Where(br => br.UserId == userId)
                 .GroupJoin(_context.Users,
                     br => br.UserId,
@@ -219,13 +220,42 @@ namespace SWD_BLDONATION.Controllers
                 .Join(_context.BloodTypes,
                     x => x.BloodRequest.BloodTypeId,
                     bt => bt.BloodTypeId,
-                    (x, bt) => new { x.BloodRequest, x.Name, x.DateOfBirth, x.Phone, BloodTypeName = bt.Name + bt.RhFactor })
+                    (x, bt) => new
+                    {
+                        x.BloodRequest,
+                        x.Name,
+                        x.DateOfBirth,
+                        x.Phone,
+                        BloodTypeName = bt.Name + bt.RhFactor
+                    })
                 .Join(_context.BloodComponents,
                     x => x.BloodRequest.BloodComponentId,
                     bc => bc.BloodComponentId,
-                    (x, bc) => new { x.BloodRequest, x.Name, x.DateOfBirth, x.Phone, x.BloodTypeName, BloodComponentName = bc.Name });
+                    (x, bc) => new
+                    {
+                        x.BloodRequest,
+                        x.Name,
+                        x.DateOfBirth,
+                        x.Phone,
+                        x.BloodTypeName,
+                        BloodComponentName = bc.Name
+                    });
 
-            var requests = await query
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                string lowerKeyword = keyword.Trim().ToLower();
+                baseQuery = baseQuery.Where(x =>
+                    (x.Name != null && x.Name.ToLower().Contains(lowerKeyword)) ||
+                    (x.Phone != null && x.Phone.ToLower().Contains(lowerKeyword)) ||
+                    (x.BloodRequest.Location != null && x.BloodRequest.Location.ToLower().Contains(lowerKeyword))
+                );
+            }
+
+            var totalCount = await baseQuery.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+
+            var requests = await baseQuery
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(x => new BloodRequestDto
@@ -239,27 +269,22 @@ namespace SWD_BLDONATION.Controllers
                     BloodTypeName = x.BloodTypeName,
                     BloodComponentId = x.BloodRequest.BloodComponentId ?? 0,
                     BloodComponentName = x.BloodComponentName,
-                    IsEmergency = x.BloodRequest.IsEmergency.HasValue ? x.BloodRequest.IsEmergency.Value : false,
+                    IsEmergency = x.BloodRequest.IsEmergency ?? false,
                     Status = new StatusDto
                     {
-                        Id = (byte)BloodRequestStatus.Pending,
-                        Name = BloodRequestStatus.Pending.ToString()
+                        Id = x.BloodRequest.Status ?? (byte)BloodRequestStatus.Pending,
+                        Name = x.BloodRequest.Status.HasValue ? ((BloodRequestStatus)x.BloodRequest.Status.Value).ToString() : BloodRequestStatus.Pending.ToString()
                     },
-                    CreatedAt = x.BloodRequest.CreatedAt.HasValue ? x.BloodRequest.CreatedAt.Value : DateTime.MinValue,
+                    CreatedAt = x.BloodRequest.CreatedAt ?? DateTime.MinValue,
                     Location = x.BloodRequest.Location,
-                    Quantity = x.BloodRequest.Quantity.HasValue ? (int)x.BloodRequest.Quantity.Value : 0,
-                    Fulfilled = x.BloodRequest.Fulfilled.HasValue ? x.BloodRequest.Fulfilled.Value : false,
+                    Quantity = x.BloodRequest.Quantity ?? 0,
+                    Fulfilled = x.BloodRequest.Fulfilled ?? false,
                     FulfilledSource = x.BloodRequest.FulfilledSource,
-                    HeightCm = x.BloodRequest.HeightCm.HasValue ? (int)x.BloodRequest.HeightCm.Value : 0,
-                    WeightKg = x.BloodRequest.WeightKg.HasValue ? (int)x.BloodRequest.WeightKg.Value : 0,
+                    HeightCm = x.BloodRequest.HeightCm ?? 0,
+                    WeightKg = x.BloodRequest.WeightKg ?? 0,
                     HealthInfo = x.BloodRequest.HealthInfo
                 })
                 .ToListAsync();
-
-            var totalCount = await query.CountAsync();
-            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
-
-            _logger.LogInformation("GetBloodRequestsByUser returned {Count} items for userId={UserId}", requests.Count, userId);
 
             return Ok(new
             {
@@ -274,5 +299,6 @@ namespace SWD_BLDONATION.Controllers
                 }
             });
         }
+
     }
 }

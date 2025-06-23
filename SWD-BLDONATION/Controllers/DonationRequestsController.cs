@@ -1,12 +1,16 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SWD_BLDONATION.DTOs.BloodComponentDTOs;
 using SWD_BLDONATION.DTOs.BloodRequestDTOs;
+using SWD_BLDONATION.DTOs.BloodTypeDTOs;
 using SWD_BLDONATION.DTOs.DonationRequestDTOs;
+using SWD_BLDONATION.DTOs.UserDTOs;
 using SWD_BLDONATION.Models.Generated;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace SWD_BLDONATION.Controllers
 {
@@ -134,20 +138,30 @@ namespace SWD_BLDONATION.Controllers
             return NoContent();
         }
 
-        // GET: api/DonationRequests/search
-        [HttpGet("search")]
-        public async Task<ActionResult<object>> SearchDonationRequests([FromQuery] DonationRequestSearchQueryDto query)
+        [HttpPost("search")]
+        public async Task<ActionResult<object>> SearchDonationRequests([FromForm] DonationRequestSearchQueryDto query)
         {
-            var dbQuery = _context.DonationRequests.AsQueryable();
+            // Validate pagination parameters
+            if (query.Page < 1 || query.PageSize < 1)
+            {
+                return BadRequest(new { message = "Invalid page or pageSize." });
+            }
+
+            // Build query with related entities
+            var dbQuery = _context.DonationRequests
+                .Include(dr => dr.BloodType)
+                .Include(dr => dr.BloodComponent)
+                .Include(dr => dr.User)
+                .AsQueryable();
 
             if (query.UserId.HasValue)
                 dbQuery = dbQuery.Where(dr => dr.UserId == query.UserId.Value);
             if (query.BloodTypeId.HasValue)
                 dbQuery = dbQuery.Where(dr => dr.BloodTypeId == query.BloodTypeId.Value);
-            if (!string.IsNullOrEmpty(query.Status))
-                dbQuery = dbQuery.Where(dr => dr.Status.ToLower() == query.Status.Trim().ToLower());
-            if (!string.IsNullOrEmpty(query.Location))
-                dbQuery = dbQuery.Where(dr => dr.Location.Contains(query.Location.Trim()));
+            if (!string.IsNullOrWhiteSpace(query.Status))
+                dbQuery = dbQuery.Where(dr => dr.Status != null && dr.Status.ToLower() == query.Status.Trim().ToLower());
+            if (!string.IsNullOrWhiteSpace(query.Location))
+                dbQuery = dbQuery.Where(dr => dr.Location != null && dr.Location.Contains(query.Location.Trim()));
             if (query.PreferredDate.HasValue)
                 dbQuery = dbQuery.Where(dr => dr.PreferredDate == query.PreferredDate.Value);
             if (query.CreatedAfter.HasValue)
@@ -166,41 +180,64 @@ namespace SWD_BLDONATION.Controllers
             var donationRequests = await dbQuery
                 .Skip((query.Page - 1) * query.PageSize)
                 .Take(query.PageSize)
-                .Select(dr => _mapper.Map<DonationRequestDto>(dr))
                 .ToListAsync();
+
+            // Manual mapping to DonationRequestDto
+            var donationRequestDtos = donationRequests.Select(dr => new DonationRequestDto
+            {
+                DonateRequestId = dr.DonateRequestId,
+                UserId = dr.UserId,
+                BloodTypeId = dr.BloodTypeId,
+                BloodComponentId = dr.BloodComponentId,
+                PreferredDate = dr.PreferredDate,
+                Status = dr.Status,
+                Location = dr.Location,
+                CreatedAt = dr.CreatedAt,
+                Quantity = dr.Quantity,
+                Note = dr.Note,
+                HeightCm = dr.HeightCm,
+                WeightKg = dr.WeightKg,
+                LastDonationDate = dr.LastDonationDate,
+                HealthInfo = dr.HealthInfo,
+                BloodType = dr.BloodType != null ? new BloodTypeDto
+                {
+                    BloodTypeId = dr.BloodType.BloodTypeId,
+                    Name = dr.BloodType.Name,
+                    RhFactor = dr.BloodType.RhFactor
+                } : null,
+                BloodComponent = dr.BloodComponent != null ? new BloodComponentDto
+                {
+                    BloodComponentId = dr.BloodComponent.BloodComponentId,
+                    Name = dr.BloodComponent.Name
+                } : null,
+                User = dr.User != null ? new UserDto
+                {
+                    UserId = dr.User.UserId,
+                    UserName = dr.User.UserName,
+                    Name = dr.User.Name,
+                    Email = dr.User.Email,
+                    Phone = dr.User.Phone,
+                    DateOfBirth = dr.User.DateOfBirth,
+                    Address = dr.User.Address,
+                    Identification = dr.User.Identification,
+                    StatusBit = dr.User.StatusBit ?? 1,
+                    RoleBit = dr.User.RoleBit ?? 0,
+                    HeightCm = dr.User.HeightCm,
+                    WeightKg = dr.User.WeightKg,
+                    MedicalHistory = dr.User.MedicalHistory,
+                    BloodTypeId = dr.User.BloodTypeId,
+                    BloodComponentId = dr.User.BloodComponentId,
+                    IsDeleted = dr.User.IsDeleted
+                } : null
+            }).ToList();
 
             return Ok(new
             {
-                Requests = donationRequests,
+                Requests = donationRequestDtos,
                 TotalCount = totalCount,
                 TotalPages = totalPages,
                 CurrentPage = query.Page,
                 PageSize = query.PageSize
-            });
-        }
-
-        // GET: api/DonationRequests/user/{userId}
-        [HttpGet("user/{userId}")]
-        public async Task<ActionResult<object>> GetRequestsByUserId(int userId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
-        {
-            var query = _context.DonationRequests.Where(u => u.UserId == userId).AsQueryable();
-
-            var totalCount = await query.CountAsync();
-            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
-
-            var donationRequests = await query
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .Select(dr => _mapper.Map<DonationRequestDto>(dr))
-                .ToListAsync();
-
-            return Ok(new
-            {
-                Data = donationRequests,
-                TotalCount = totalCount,
-                TotalPages = totalPages,
-                CurrentPage = page,
-                PageSize = pageSize
             });
         }
     }

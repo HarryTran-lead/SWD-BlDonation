@@ -66,7 +66,7 @@ namespace SWD_BLDONATION.Controllers
         }
 
         [HttpPost("login")]
-        public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginDto dto)
+        public async Task<ActionResult<AuthResponseDto>> Login([FromForm] LoginDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);

@@ -23,6 +23,99 @@ namespace SWD_BLDONATION.Controllers
             _logger = logger;
         }
 
+        [HttpPost("search")]
+        public async Task<ActionResult<object>> SearchUsers([FromForm] UserSearchQueryDto filter)
+        {
+            // Validate pagination parameters
+            int page = filter.Page < 1 ? 1 : filter.Page;
+            int pageSize = filter.PageSize < 1 ? 10 : filter.PageSize;
+
+            // Build query
+            var query = _context.Users
+                .Where(u => !u.IsDeleted)
+                .GroupJoin(_context.BloodTypes,
+                    u => u.BloodTypeId,
+                    bt => bt.BloodTypeId,
+                    (u, bt) => new { User = u, BloodType = bt })
+                .SelectMany(
+                    x => x.BloodType.DefaultIfEmpty(),
+                    (u, bt) => new { u.User, BloodType = bt })
+                .GroupJoin(_context.BloodComponents,
+                    x => x.User.BloodComponentId,
+                    bc => bc.BloodComponentId,
+                    (x, bc) => new { x.User, x.BloodType, BloodComponent = bc })
+                .SelectMany(
+                    x => x.BloodComponent.DefaultIfEmpty(),
+                    (x, bc) => new { x.User, x.BloodType, BloodComponent = bc });
+
+            // Apply search filters
+            if (!string.IsNullOrWhiteSpace(filter.UserName))
+            {
+                query = query.Where(x => x.User.UserName.Contains(filter.UserName.Trim()));
+            }
+
+            if (!string.IsNullOrWhiteSpace(filter.Email))
+            {
+                query = query.Where(x => x.User.Email.Contains(filter.Email.Trim()));
+            }
+
+            if (!string.IsNullOrWhiteSpace(filter.Name))
+            {
+                query = query.Where(x => x.User.Name.Contains(filter.Name.Trim()));
+            }
+
+            if (!string.IsNullOrWhiteSpace(filter.Phone))
+            {
+                query = query.Where(x => x.User.Phone != null && x.User.Phone.Contains(filter.Phone.Trim()));
+            }
+
+            if (filter.StatusBit.HasValue)
+            {
+                query = query.Where(x => x.User.StatusBit == filter.StatusBit.Value);
+            }
+
+            // Execute query with pagination
+            var users = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(x => new UserSearchDto
+                {
+                    UserId = x.User.UserId,
+                    UserName = x.User.UserName,
+                    Name = x.User.Name,
+                    Email = x.User.Email,
+                    Phone = x.User.Phone,
+                    DateOfBirth = x.User.DateOfBirth,
+                    Address = x.User.Address,
+                    Identification = x.User.Identification,
+                    StatusBit = x.User.StatusBit ?? 1,
+                    RoleBit = x.User.RoleBit ?? 0,
+                    HeightCm = x.User.HeightCm,
+                    WeightKg = x.User.WeightKg,
+                    MedicalHistory = x.User.MedicalHistory,
+                    BloodTypeId = x.User.BloodTypeId,
+                    BloodComponentId = x.User.BloodComponentId,
+                    IsDeleted = x.User.IsDeleted,
+                    Role = new EnumDto { Id = x.User.RoleBit ?? 0, Name = ((UserRole)(x.User.RoleBit ?? 0)).ToString() },
+                    Status = new EnumDto { Id = x.User.StatusBit ?? 1, Name = ((UserStatus)(x.User.StatusBit ?? 1)).ToString() },
+                    BloodType = x.BloodType != null ? new EnumDto { Id = x.BloodType.BloodTypeId, Name = x.BloodType.Name + x.BloodType.RhFactor } : null,
+                    BloodComponent = x.BloodComponent != null ? new EnumDto { Id = x.BloodComponent.BloodComponentId, Name = x.BloodComponent.Name } : null
+                })
+                .ToListAsync();
+
+            var totalCount = await query.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+            return Ok(new
+            {
+                Users = users,
+                TotalCount = totalCount,
+                TotalPages = totalPages,
+                CurrentPage = page,
+                PageSize = pageSize
+            });
+        }
+
         // GET: api/Users
         [HttpGet]
         public async Task<ActionResult<object>> GetUsers([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
@@ -209,40 +302,120 @@ namespace SWD_BLDONATION.Controllers
 
             var updatedFields = new List<string>();
 
+            if (!string.IsNullOrWhiteSpace(dto.UserName) && dto.UserName.Trim() != user.UserName)
+            {
+                var newUserName = dto.UserName.Trim();
+                if (await _context.Users.AnyAsync(u => u.UserName == newUserName && !u.IsDeleted && u.UserId != id))
+                    return BadRequest(new { message = "Username already exists." });
+                user.UserName = newUserName;
+                updatedFields.Add("UserName");
+            }
+
+            if (!string.IsNullOrWhiteSpace(dto.Password))
+            {
+                user.Password = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+                updatedFields.Add("Password");
+            }
+
             if (!string.IsNullOrWhiteSpace(dto.Email) && dto.Email.Trim() != user.Email)
             {
-                var email = dto.Email.Trim();
-                var emailExists = await _context.Users.AnyAsync(u => u.Email == email && !u.IsDeleted && u.UserId != id);
-                if (emailExists)
+                var newEmail = dto.Email.Trim();
+                if (await _context.Users.AnyAsync(u => u.Email == newEmail && !u.IsDeleted && u.UserId != id))
                     return BadRequest(new { message = "Email already exists." });
-                user.Email = email;
+                user.Email = newEmail;
                 updatedFields.Add("Email");
+            }
+
+            if (!string.IsNullOrWhiteSpace(dto.Name) && dto.Name.Trim() != user.Name)
+            {
+                user.Name = dto.Name.Trim();
+                updatedFields.Add("Name");
+            }
+
+            if (!string.IsNullOrWhiteSpace(dto.Phone) && dto.Phone.Trim() != user.Phone)
+            {
+                user.Phone = dto.Phone.Trim();
+                updatedFields.Add("Phone");
+            }
+
+            if (dto.DateOfBirth.HasValue && dto.DateOfBirth.Value != user.DateOfBirth)
+            {
+                user.DateOfBirth = dto.DateOfBirth.Value;
+                updatedFields.Add("DateOfBirth");
+            }
+
+            if (!string.IsNullOrWhiteSpace(dto.Address) && dto.Address.Trim() != user.Address)
+            {
+                user.Address = dto.Address.Trim();
+                updatedFields.Add("Address");
             }
 
             if (!string.IsNullOrWhiteSpace(dto.Identification) && dto.Identification.Trim() != user.Identification)
             {
-                var identification = dto.Identification.Trim();
-                var idExists = await _context.Users.AnyAsync(u => u.Identification == identification && !u.IsDeleted && u.UserId != id);
-                if (idExists)
+                var newId = dto.Identification.Trim();
+                if (await _context.Users.AnyAsync(u => u.Identification == newId && !u.IsDeleted && u.UserId != id))
                     return BadRequest(new { message = "Identification already exists." });
-                user.Identification = identification;
+                user.Identification = newId;
                 updatedFields.Add("Identification");
             }
 
-            // Add other fields like UserName, Password, Name, etc.
+            if (dto.StatusBit.HasValue && dto.StatusBit != user.StatusBit.Value)
+            {
+                user.StatusBit = dto.StatusBit.Value;
+                updatedFields.Add("StatusBit");
+            }
+
+            if (dto.RoleBit.HasValue && dto.RoleBit.Value != user.RoleBit)
+            {
+                user.RoleBit = dto.RoleBit.Value;
+                updatedFields.Add("RoleBit");
+            }
+
+            if (dto.HeightCm.HasValue && dto.HeightCm.Value != user.HeightCm)
+            {
+                user.HeightCm = dto.HeightCm.Value;
+                updatedFields.Add("HeightCm");
+            }
+
+            if (dto.WeightKg.HasValue && dto.WeightKg.Value != user.WeightKg)
+            {
+                user.WeightKg = dto.WeightKg.Value;
+                updatedFields.Add("WeightKg");
+            }
+
+            if (!string.IsNullOrWhiteSpace(dto.MedicalHistory) && dto.MedicalHistory.Trim() != user.MedicalHistory)
+            {
+                user.MedicalHistory = dto.MedicalHistory.Trim();
+                updatedFields.Add("MedicalHistory");
+            }
+
+            if (dto.BloodTypeId.HasValue && dto.BloodTypeId.Value != user.BloodTypeId)
+            {
+                user.BloodTypeId = dto.BloodTypeId.Value;
+                updatedFields.Add("BloodTypeId");
+            }
+
+            if (dto.BloodComponentId.HasValue && dto.BloodComponentId.Value != user.BloodComponentId)
+            {
+                user.BloodComponentId = dto.BloodComponentId.Value;
+                updatedFields.Add("BloodComponentId");
+            }
 
             if (updatedFields.Any())
             {
                 _context.Entry(user).State = EntityState.Modified;
                 await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    message = "User updated successfully.",
+                    updatedFields
+                });
             }
 
-            return Ok(new
-            {
-                message = updatedFields.Any() ? "Update successful." : "No fields were updated.",
-                updatedFields = updatedFields.Any() ? updatedFields : new List<string>()
-            });
+            return Ok(new { message = "No fields were updated." });
         }
+
 
         // DELETE: api/Users/5 (soft delete)
         [HttpDelete("{id}")]

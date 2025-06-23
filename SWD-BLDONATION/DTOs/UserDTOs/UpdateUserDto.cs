@@ -32,7 +32,7 @@ namespace SWD_BLDONATION.DTOs.UserDTOs
         [DefaultValue("")]
         public string? Identification { get; set; }
 
-        public bool? StatusBit { get; set; }
+        public byte? StatusBit { get; set; }
 
         [DefaultValue(0)]
         public byte? RoleBit { get; set; }
