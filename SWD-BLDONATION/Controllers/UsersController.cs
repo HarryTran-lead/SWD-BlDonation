@@ -23,8 +23,9 @@ namespace SWD_BLDONATION.Controllers
             _logger = logger;
         }
 
-        [HttpPost("search")]
-        public async Task<ActionResult<object>> SearchUsers([FromForm] UserSearchQueryDto filter)
+        // GET: api/Users/search
+        [HttpGet("search")]
+        public async Task<ActionResult<object>> SearchUsers([FromQuery] UserSearchQueryDto filter)
         {
             // Validate pagination parameters
             int page = filter.Page < 1 ? 1 : filter.Page;
@@ -298,14 +299,14 @@ namespace SWD_BLDONATION.Controllers
 
             var user = await _context.Users.FindAsync(id);
             if (user == null || user.IsDeleted)
-                return NotFound(new { message = "User not found" });
+                return BadRequest(new { message = "User not found" });
 
             var updatedFields = new List<string>();
 
-            if (!string.IsNullOrWhiteSpace(dto.UserName) && dto.UserName.Trim() != user.UserName)
+            if (!string.IsNullOrWhiteSpace(dto.UserName))
             {
                 var newUserName = dto.UserName.Trim();
-                if (await _context.Users.AnyAsync(u => u.UserName == newUserName && !u.IsDeleted && u.UserId != id))
+                if (newUserName != user.UserName && await _context.Users.AnyAsync(u => u.UserName == newUserName && !u.IsDeleted && u.UserId != id))
                     return BadRequest(new { message = "Username already exists." });
                 user.UserName = newUserName;
                 updatedFields.Add("UserName");
@@ -317,85 +318,85 @@ namespace SWD_BLDONATION.Controllers
                 updatedFields.Add("Password");
             }
 
-            if (!string.IsNullOrWhiteSpace(dto.Email) && dto.Email.Trim() != user.Email)
+            if (!string.IsNullOrWhiteSpace(dto.Email))
             {
                 var newEmail = dto.Email.Trim();
-                if (await _context.Users.AnyAsync(u => u.Email == newEmail && !u.IsDeleted && u.UserId != id))
+                if (newEmail != user.Email && await _context.Users.AnyAsync(u => u.Email == newEmail && !u.IsDeleted && u.UserId != id))
                     return BadRequest(new { message = "Email already exists." });
                 user.Email = newEmail;
                 updatedFields.Add("Email");
             }
 
-            if (!string.IsNullOrWhiteSpace(dto.Name) && dto.Name.Trim() != user.Name)
+            if (!string.IsNullOrWhiteSpace(dto.Name))
             {
                 user.Name = dto.Name.Trim();
                 updatedFields.Add("Name");
             }
 
-            if (!string.IsNullOrWhiteSpace(dto.Phone) && dto.Phone.Trim() != user.Phone)
+            if (dto.Phone != null)
             {
-                user.Phone = dto.Phone.Trim();
+                user.Phone = string.IsNullOrWhiteSpace(dto.Phone) ? null : dto.Phone.Trim();
                 updatedFields.Add("Phone");
             }
 
-            if (dto.DateOfBirth.HasValue && dto.DateOfBirth.Value != user.DateOfBirth)
+            if (dto.DateOfBirth.HasValue)
             {
                 user.DateOfBirth = dto.DateOfBirth.Value;
                 updatedFields.Add("DateOfBirth");
             }
 
-            if (!string.IsNullOrWhiteSpace(dto.Address) && dto.Address.Trim() != user.Address)
+            if (dto.Address != null)
             {
-                user.Address = dto.Address.Trim();
+                user.Address = string.IsNullOrWhiteSpace(dto.Address) ? null : dto.Address.Trim();
                 updatedFields.Add("Address");
             }
 
-            if (!string.IsNullOrWhiteSpace(dto.Identification) && dto.Identification.Trim() != user.Identification)
+            if (dto.Identification != null)
             {
-                var newId = dto.Identification.Trim();
-                if (await _context.Users.AnyAsync(u => u.Identification == newId && !u.IsDeleted && u.UserId != id))
+                var newId = string.IsNullOrWhiteSpace(dto.Identification) ? null : dto.Identification.Trim();
+                if (newId != null && newId != user.Identification && await _context.Users.AnyAsync(u => u.Identification == newId && !u.IsDeleted && u.UserId != id))
                     return BadRequest(new { message = "Identification already exists." });
                 user.Identification = newId;
                 updatedFields.Add("Identification");
             }
 
-            if (dto.StatusBit.HasValue && dto.StatusBit != user.StatusBit.Value)
+            if (dto.StatusBit.HasValue)
             {
                 user.StatusBit = dto.StatusBit.Value;
                 updatedFields.Add("StatusBit");
             }
 
-            if (dto.RoleBit.HasValue && dto.RoleBit.Value != user.RoleBit)
+            if (dto.RoleBit.HasValue)
             {
                 user.RoleBit = dto.RoleBit.Value;
                 updatedFields.Add("RoleBit");
             }
 
-            if (dto.HeightCm.HasValue && dto.HeightCm.Value != user.HeightCm)
+            if (dto.HeightCm.HasValue && dto.HeightCm > 0)
             {
                 user.HeightCm = dto.HeightCm.Value;
                 updatedFields.Add("HeightCm");
             }
 
-            if (dto.WeightKg.HasValue && dto.WeightKg.Value != user.WeightKg)
+            if (dto.WeightKg.HasValue && dto.WeightKg > 0)
             {
                 user.WeightKg = dto.WeightKg.Value;
                 updatedFields.Add("WeightKg");
             }
 
-            if (!string.IsNullOrWhiteSpace(dto.MedicalHistory) && dto.MedicalHistory.Trim() != user.MedicalHistory)
+            if (dto.MedicalHistory != null)
             {
-                user.MedicalHistory = dto.MedicalHistory.Trim();
+                user.MedicalHistory = string.IsNullOrWhiteSpace(dto.MedicalHistory) ? null : dto.MedicalHistory.Trim();
                 updatedFields.Add("MedicalHistory");
             }
 
-            if (dto.BloodTypeId.HasValue && dto.BloodTypeId.Value != user.BloodTypeId)
+            if (dto.BloodTypeId.HasValue && dto.BloodTypeId > 0)
             {
                 user.BloodTypeId = dto.BloodTypeId.Value;
                 updatedFields.Add("BloodTypeId");
             }
 
-            if (dto.BloodComponentId.HasValue && dto.BloodComponentId.Value != user.BloodComponentId)
+            if (dto.BloodComponentId.HasValue && dto.BloodComponentId > 0)
             {
                 user.BloodComponentId = dto.BloodComponentId.Value;
                 updatedFields.Add("BloodComponentId");
@@ -415,7 +416,6 @@ namespace SWD_BLDONATION.Controllers
 
             return Ok(new { message = "No fields were updated." });
         }
-
 
         // DELETE: api/Users/5 (soft delete)
         [HttpDelete("{id}")]

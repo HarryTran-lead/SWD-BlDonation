@@ -35,6 +35,50 @@ namespace SWD_BLDONATION.Controllers
             return Ok(list);
         }
 
+        // GET: api/BloodComponents/search
+        [HttpGet("search")]
+        public async Task<ActionResult<object>> SearchBloodComponents(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] int? bloodComponentId = null,
+            [FromQuery] string? name = null)
+        {
+            if (page < 1 || pageSize < 1)
+            {
+                return BadRequest(new { Message = "Invalid page or pageSize." });
+            }
+
+            var query = _context.BloodComponents.AsQueryable();
+
+            // Apply search filters
+            if (bloodComponentId.HasValue)
+                query = query.Where(bc => bc.BloodComponentId == bloodComponentId.Value);
+            if (!string.IsNullOrWhiteSpace(name))
+                query = query.Where(bc => bc.Name != null && bc.Name.ToLower().Contains(name.Trim().ToLower()));
+
+            var totalCount = await query.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+            var bloodComponents = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(bc => new BloodComponentDto
+                {
+                    BloodComponentId = bc.BloodComponentId,
+                    Name = bc.Name
+                })
+                .ToListAsync();
+
+            return Ok(new
+            {
+                Data = bloodComponents,
+                TotalCount = totalCount,
+                TotalPages = totalPages,
+                CurrentPage = page,
+                PageSize = pageSize
+            });
+        }
+
         // GET: api/BloodComponents/5
         [HttpGet("{id}")]
         public async Task<ActionResult<BloodComponentDto>> GetBloodComponent(int id)
