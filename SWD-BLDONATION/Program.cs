@@ -14,7 +14,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 
 // Thêm cấu hình DbContext
-builder.Services.AddDbContext<BloodDonationContext>(options =>
+builder.Services.AddDbContext<BloodDonationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Đăng ký AutoMapper (bắt buộc để inject IMapper)

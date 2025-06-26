@@ -15,10 +15,10 @@ namespace SWD_BLDONATION.Controllers
     [ApiController]
     public class BloodRequestsController : ControllerBase
     {
-        private readonly BloodDonationContext _context;
+        private readonly BloodDonationDbContext _context;
         private readonly ILogger<BloodRequestsController> _logger;
 
-        public BloodRequestsController(BloodDonationContext context, ILogger<BloodRequestsController> logger)
+        public BloodRequestsController(BloodDonationDbContext context, ILogger<BloodRequestsController> logger)
         {
             _context = context;
             _logger = logger;
@@ -323,8 +323,11 @@ namespace SWD_BLDONATION.Controllers
                 return BadRequest(new { message = "Invalid data submitted.", errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage) });
             }
 
+            Console.WriteLine(dto.DateOfBirth);
+
             var bloodRequest = new BloodRequest
             {
+                UserId = dto.UserId,
                 BloodTypeId = dto.BloodTypeId,
                 BloodComponentId = dto.BloodComponentId,
                 IsEmergency = dto.IsEmergency,
@@ -333,8 +336,15 @@ namespace SWD_BLDONATION.Controllers
                 Location = dto.Location,
                 Quantity = dto.Quantity,
                 Fulfilled = false,
-                HealthInfo = dto.HealthInfo
+                HealthInfo = dto.HealthInfo,
+
+                Name = dto.Name,
+                Phone = dto.Phone,
+                DateOfBirth = dto.DateOfBirth,
+                HeightCm = dto.HeightCm,
+                WeightKg = dto.WeightKg
             };
+
 
             _context.BloodRequests.Add(bloodRequest);
             await _context.SaveChangesAsync();
@@ -366,6 +376,34 @@ namespace SWD_BLDONATION.Controllers
 
             return Ok(new { message = "Blood request updated successfully." });
         }
+
+        [HttpPatch("{id}/status")]
+        public async Task<IActionResult> UpdateBloodRequestStatus(int id, [FromBody] UpdateBloodRequestStatusDto dto)
+        {
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new { message = "Invalid data submitted.", errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage) });
+            }
+
+            if (!Enum.IsDefined(typeof(BloodRequestStatus), dto.Status))
+            {
+                return BadRequest(new { message = "Invalid status value." });
+            }
+
+            var bloodRequest = await _context.BloodRequests.FindAsync(id);
+            if (bloodRequest == null)
+            {
+                return NotFound(new { message = "Blood request not found" });
+            }
+
+            bloodRequest.Status = dto.Status;
+            _context.Entry(bloodRequest).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Blood request status updated successfully." });
+        }
+
 
         // DELETE: api/BloodRequests/{id}
         [HttpDelete("{id}")]
