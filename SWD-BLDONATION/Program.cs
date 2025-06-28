@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SWD_BLDONATION.MappingProfiles;
 using SWD_BLDONATION.Models.Generated;
+using SWD_BLDONATION.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -45,7 +46,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 
 builder.Services.AddAuthorization();
-
+builder.Services.AddHostedService<BloodRequestFulfillmentService>();
 // Thêm CORS policy
 builder.Services.AddCors(options =>
 {
