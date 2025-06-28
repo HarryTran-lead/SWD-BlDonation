@@ -33,6 +33,8 @@ public partial class DonationRequest
 
     public string? HealthInfo { get; set; }
 
+    public DateOnly? DateOfBirth { get; set; }
+
     public virtual BloodComponent? BloodComponent { get; set; }
 
     public virtual BloodType? BloodType { get; set; }

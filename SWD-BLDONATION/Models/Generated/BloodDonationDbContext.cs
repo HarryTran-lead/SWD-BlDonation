@@ -45,7 +45,7 @@ public partial class BloodDonationDbContext : DbContext
     {
         modelBuilder.Entity<BlogPost>(entity =>
         {
-            entity.HasKey(e => e.PostId).HasName("PK__BlogPost__3ED787664AF677A0");
+            entity.HasKey(e => e.PostId).HasName("PK__BlogPost__3ED787666B962BA9");
 
             entity.ToTable("BlogPost");
 
@@ -73,12 +73,12 @@ public partial class BloodDonationDbContext : DbContext
 
             entity.HasOne(d => d.User).WithMany(p => p.BlogPosts)
                 .HasForeignKey(d => d.UserId)
-                .HasConstraintName("FK__BlogPost__user_i__1F98B2C1");
+                .HasConstraintName("FK__BlogPost__user_i__440B1D61");
         });
 
         modelBuilder.Entity<BloodComponent>(entity =>
         {
-            entity.HasKey(e => e.BloodComponentId).HasName("PK__BloodCom__14A61BEFCA2765A2");
+            entity.HasKey(e => e.BloodComponentId).HasName("PK__BloodCom__14A61BEFE76BC864");
 
             entity.ToTable("BloodComponent");
 
@@ -92,7 +92,7 @@ public partial class BloodDonationDbContext : DbContext
 
         modelBuilder.Entity<BloodInventory>(entity =>
         {
-            entity.HasKey(e => e.InventoryId).HasName("PK__BloodInv__B59ACC4931D0B7D8");
+            entity.HasKey(e => e.InventoryId).HasName("PK__BloodInv__B59ACC49C1B2E1D3");
 
             entity.ToTable("BloodInventory");
 
@@ -115,16 +115,16 @@ public partial class BloodDonationDbContext : DbContext
 
             entity.HasOne(d => d.BloodComponent).WithMany(p => p.BloodInventories)
                 .HasForeignKey(d => d.BloodComponentId)
-                .HasConstraintName("FK__BloodInve__blood__2180FB33");
+                .HasConstraintName("FK__BloodInve__blood__46E78A0C");
 
             entity.HasOne(d => d.BloodType).WithMany(p => p.BloodInventories)
                 .HasForeignKey(d => d.BloodTypeId)
-                .HasConstraintName("FK__BloodInve__blood__208CD6FA");
+                .HasConstraintName("FK__BloodInve__blood__45F365D3");
         });
 
         modelBuilder.Entity<BloodRequest>(entity =>
         {
-            entity.HasKey(e => e.BloodRequestId).HasName("PK__BloodReq__0F0E510D13B6DCB8");
+            entity.HasKey(e => e.BloodRequestId).HasName("PK__BloodReq__0F0E510DB8410CD1");
 
             entity.ToTable("BloodRequest");
 
@@ -166,20 +166,20 @@ public partial class BloodDonationDbContext : DbContext
 
             entity.HasOne(d => d.BloodComponent).WithMany(p => p.BloodRequests)
                 .HasForeignKey(d => d.BloodComponentId)
-                .HasConstraintName("FK__BloodRequ__blood__236943A5");
+                .HasConstraintName("FK__BloodRequ__blood__4AB81AF0");
 
             entity.HasOne(d => d.BloodType).WithMany(p => p.BloodRequests)
                 .HasForeignKey(d => d.BloodTypeId)
-                .HasConstraintName("FK__BloodRequ__blood__22751F6C");
+                .HasConstraintName("FK__BloodRequ__blood__49C3F6B7");
 
             entity.HasOne(d => d.User).WithMany(p => p.BloodRequests)
                 .HasForeignKey(d => d.UserId)
-                .HasConstraintName("FK__BloodRequ__user___245D67DE");
+                .HasConstraintName("FK__BloodRequ__user___4D94879B");
         });
 
         modelBuilder.Entity<BloodRequestInventory>(entity =>
         {
-            entity.HasKey(e => e.Id).HasName("PK__BloodReq__3213E83F6947E15A");
+            entity.HasKey(e => e.Id).HasName("PK__BloodReq__3213E83FAA6AFCE1");
 
             entity.ToTable("BloodRequestInventory");
 
@@ -196,20 +196,20 @@ public partial class BloodDonationDbContext : DbContext
 
             entity.HasOne(d => d.AllocatedByNavigation).WithMany(p => p.BloodRequestInventories)
                 .HasForeignKey(d => d.AllocatedBy)
-                .HasConstraintName("FK__BloodRequ__alloc__25518C17");
+                .HasConstraintName("FK__BloodRequ__alloc__4F7CD00D");
 
             entity.HasOne(d => d.BloodRequest).WithMany(p => p.BloodRequestInventories)
                 .HasForeignKey(d => d.BloodRequestId)
-                .HasConstraintName("FK__BloodRequ__blood__2645B050");
+                .HasConstraintName("FK__BloodRequ__blood__5165187F");
 
             entity.HasOne(d => d.Inventory).WithMany(p => p.BloodRequestInventories)
                 .HasForeignKey(d => d.InventoryId)
-                .HasConstraintName("FK__BloodRequ__inven__2739D489");
+                .HasConstraintName("FK__BloodRequ__inven__534D60F1");
         });
 
         modelBuilder.Entity<BloodType>(entity =>
         {
-            entity.HasKey(e => e.BloodTypeId).HasName("PK__BloodTyp__56FFB8C88283EEA7");
+            entity.HasKey(e => e.BloodTypeId).HasName("PK__BloodTyp__56FFB8C8DBA8E22D");
 
             entity.ToTable("BloodType");
 
@@ -226,7 +226,7 @@ public partial class BloodDonationDbContext : DbContext
 
         modelBuilder.Entity<DonationHistory>(entity =>
         {
-            entity.HasKey(e => e.DonationId).HasName("PK__Donation__296B91DC4D6D6835");
+            entity.HasKey(e => e.DonationId).HasName("PK__Donation__296B91DCB8AFFADD");
 
             entity.ToTable("DonationHistory");
 
@@ -243,20 +243,20 @@ public partial class BloodDonationDbContext : DbContext
 
             entity.HasOne(d => d.BloodComponent).WithMany(p => p.DonationHistories)
                 .HasForeignKey(d => d.BloodComponentId)
-                .HasConstraintName("FK__DonationH__blood__29221CFB");
+                .HasConstraintName("FK__DonationH__blood__5629CD9C");
 
             entity.HasOne(d => d.BloodType).WithMany(p => p.DonationHistories)
                 .HasForeignKey(d => d.BloodTypeId)
-                .HasConstraintName("FK__DonationH__blood__282DF8C2");
+                .HasConstraintName("FK__DonationH__blood__5535A963");
 
             entity.HasOne(d => d.User).WithMany(p => p.DonationHistories)
                 .HasForeignKey(d => d.UserId)
-                .HasConstraintName("FK__DonationH__user___2A164134");
+                .HasConstraintName("FK__DonationH__user___59063A47");
         });
 
         modelBuilder.Entity<DonationRequest>(entity =>
         {
-            entity.HasKey(e => e.DonateRequestId).HasName("PK__Donation__D517757A74CACFD4");
+            entity.HasKey(e => e.DonateRequestId).HasName("PK__Donation__D517757A35686082");
 
             entity.ToTable("DonationRequest");
 
@@ -267,6 +267,7 @@ public partial class BloodDonationDbContext : DbContext
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime")
                 .HasColumnName("created_at");
+            entity.Property(e => e.DateOfBirth).HasColumnName("date_of_birth");
             entity.Property(e => e.HealthInfo)
                 .HasColumnType("text")
                 .HasColumnName("health_info");
@@ -294,20 +295,20 @@ public partial class BloodDonationDbContext : DbContext
 
             entity.HasOne(d => d.BloodComponent).WithMany(p => p.DonationRequests)
                 .HasForeignKey(d => d.BloodComponentId)
-                .HasConstraintName("FK__DonationR__blood__2BFE89A6");
+                .HasConstraintName("FK__DonationR__blood__5BE2A6F2");
 
             entity.HasOne(d => d.BloodType).WithMany(p => p.DonationRequests)
                 .HasForeignKey(d => d.BloodTypeId)
-                .HasConstraintName("FK__DonationR__blood__2B0A656D");
+                .HasConstraintName("FK__DonationR__blood__5AEE82B9");
 
             entity.HasOne(d => d.User).WithMany(p => p.DonationRequests)
                 .HasForeignKey(d => d.UserId)
-                .HasConstraintName("FK__DonationR__user___2CF2ADDF");
+                .HasConstraintName("FK__DonationR__user___5EBF139D");
         });
 
         modelBuilder.Entity<Notification>(entity =>
         {
-            entity.HasKey(e => e.NotificationId).HasName("PK__Notifica__E059842FAEC1169A");
+            entity.HasKey(e => e.NotificationId).HasName("PK__Notifica__E059842F3E8ECE58");
 
             entity.ToTable("Notification");
 
@@ -331,12 +332,12 @@ public partial class BloodDonationDbContext : DbContext
 
             entity.HasOne(d => d.User).WithMany(p => p.Notifications)
                 .HasForeignKey(d => d.UserId)
-                .HasConstraintName("FK__Notificat__user___2DE6D218");
+                .HasConstraintName("FK__Notificat__user___60A75C0F");
         });
 
         modelBuilder.Entity<RequestMatch>(entity =>
         {
-            entity.HasKey(e => e.MatchId).HasName("PK__RequestM__9D7FCBA3A6DBEE4D");
+            entity.HasKey(e => e.MatchId).HasName("PK__RequestM__9D7FCBA3EBFF3336");
 
             entity.ToTable("RequestMatch");
 
@@ -358,16 +359,16 @@ public partial class BloodDonationDbContext : DbContext
 
             entity.HasOne(d => d.BloodRequest).WithMany(p => p.RequestMatches)
                 .HasForeignKey(d => d.BloodRequestId)
-                .HasConstraintName("FK__RequestMa__blood__2EDAF651");
+                .HasConstraintName("FK__RequestMa__blood__628FA481");
 
             entity.HasOne(d => d.DonationRequest).WithMany(p => p.RequestMatches)
                 .HasForeignKey(d => d.DonationRequestId)
-                .HasConstraintName("FK__RequestMa__donat__2FCF1A8A");
+                .HasConstraintName("FK__RequestMa__donat__6477ECF3");
         });
 
         modelBuilder.Entity<User>(entity =>
         {
-            entity.HasKey(e => e.UserId).HasName("PK__User__B9BE370F33CF8C95");
+            entity.HasKey(e => e.UserId).HasName("PK__User__B9BE370FF17EABBA");
 
             entity.ToTable("User");
 
@@ -414,11 +415,11 @@ public partial class BloodDonationDbContext : DbContext
 
             entity.HasOne(d => d.BloodComponent).WithMany(p => p.Users)
                 .HasForeignKey(d => d.BloodComponentId)
-                .HasConstraintName("FK__User__blood_comp__30C33EC3");
+                .HasConstraintName("FK__User__blood_comp__66603565");
 
             entity.HasOne(d => d.BloodType).WithMany(p => p.Users)
                 .HasForeignKey(d => d.BloodTypeId)
-                .HasConstraintName("FK__User__blood_type__31B762FC");
+                .HasConstraintName("FK__User__blood_type__68487DD7");
         });
 
         OnModelCreatingPartial(modelBuilder);
