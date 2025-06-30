@@ -75,6 +75,11 @@ namespace SWD_BLDONATION.Controllers
                 query = query.Where(x => x.User.StatusBit == filter.StatusBit.Value);
             }
 
+            if (filter.RoleBit.HasValue)
+            {
+                query = query.Where(x => x.User.RoleBit == filter.RoleBit.Value);
+            }
+
             // Execute query with pagination
             var users = await query
                 .Skip((page - 1) * pageSize)

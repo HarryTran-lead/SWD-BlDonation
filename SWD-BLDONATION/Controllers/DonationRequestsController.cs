@@ -45,6 +45,8 @@ namespace SWD_BLDONATION.Controllers
             var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
             var donationRequests = await query
+                .OrderBy(dr => dr.Status == "Pending" ? 0 :
+                   dr.Status == "Successful" ? 1 : 2)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
@@ -251,6 +253,8 @@ namespace SWD_BLDONATION.Controllers
             var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
             var donationRequests = await query
+                 .OrderBy(dr => dr.Status == "Pending" ? 0 :
+                   dr.Status == "Successful" ? 1 : 2)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();

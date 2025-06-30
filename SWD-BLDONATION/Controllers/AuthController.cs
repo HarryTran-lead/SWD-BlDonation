@@ -8,6 +8,7 @@ using System.Security.Claims;
 using System.Text;
 using BCrypt.Net;
 using Microsoft.CodeAnalysis.Scripting;
+using SWD_BLDONATION.Models.Enums;
 
 namespace SWD_BLDONATION.Controllers
 {
@@ -115,13 +116,10 @@ namespace SWD_BLDONATION.Controllers
 
         private string GetRoleName(byte roleBit)
         {
-            return roleBit switch
-            {
-                1 => "User",
-                2 => "Staff",
-                3 => "Admin",
-                _ => "User"
-            };
+            return Enum.IsDefined(typeof(UserRole), roleBit)
+                ? ((UserRole)roleBit).ToString()
+                : "User";
         }
+
     }
 }

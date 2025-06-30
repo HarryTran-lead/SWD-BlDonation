@@ -140,6 +140,9 @@ namespace SWD_BLDONATION.Controllers
                     (x, bc) => new { x.BloodRequest, x.Name, x.DateOfBirth, x.Phone, x.BloodTypeName, BloodComponentName = bc.Name });
 
             var requests = await query
+                .OrderBy(x => x.BloodRequest.Status == (byte)BloodRequestStatus.Pending ? 0
+        : x.BloodRequest.Status == (byte)BloodRequestStatus.Successful ? 1
+        : 2)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(x => new BloodRequestDto
@@ -265,6 +268,9 @@ namespace SWD_BLDONATION.Controllers
             var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
             var requests = await query
+                .OrderBy(x => x.BloodRequest.Status == (byte)BloodRequestStatus.Pending ? 0
+        : x.BloodRequest.Status == (byte)BloodRequestStatus.Successful ? 1
+        : 2)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(x => new BloodRequestDto
