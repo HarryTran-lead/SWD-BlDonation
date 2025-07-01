@@ -384,7 +384,7 @@ namespace SWD_BLDONATION.Controllers
         }
 
         [HttpPatch("{id}/status")]
-        public async Task<IActionResult> UpdateBloodRequestStatus(int id, [FromBody] UpdateBloodRequestStatusDto dto)
+        public async Task<IActionResult> UpdateBloodRequestStatus(int id, [FromForm] UpdateBloodRequestStatusDto dto)
         {
 
             if (!ModelState.IsValid)
@@ -572,7 +572,7 @@ namespace SWD_BLDONATION.Controllers
         }
 
         [HttpPatch("{id}/status/staff")]
-        public async Task<IActionResult> UpdateBloodRequestFromStaffStatus(int id, [FromBody] UpdateBloodRequestStatusDto dto)
+        public async Task<IActionResult> UpdateBloodRequestFromStaffStatus(int id, [FromForm] UpdateBloodRequestStatusDto dto)
         {
             _logger.LogInformation("UpdateBloodRequestStatus called with id={Id}, status={Status}", id, dto.Status);
 

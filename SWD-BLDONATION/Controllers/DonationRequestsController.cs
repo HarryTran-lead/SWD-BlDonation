@@ -17,10 +17,10 @@ namespace SWD_BLDONATION.Controllers
     [ApiController]
     public class DonationRequestsController : ControllerBase
     {
-        private readonly BloodDonationContext _context;
+        private readonly BloodDonationDbContext _context;
         private readonly IMapper _mapper;
 
-        public DonationRequestsController(BloodDonationContext context, IMapper mapper)
+        public DonationRequestsController(BloodDonationDbContext context, IMapper mapper)
         {
             _context = context;
             _mapper = mapper;
@@ -130,7 +130,7 @@ namespace SWD_BLDONATION.Controllers
 
         // PUT: api/DonationRequests/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutDonationRequest(int id, [FromBody] UpdateDonationRequestDto updateDto)
+        public async Task<IActionResult> PutDonationRequest(int id, [FromForm] UpdateDonationRequestDto updateDto)
         {
             if (id != updateDto.DonateRequestId)
             {
@@ -167,7 +167,7 @@ namespace SWD_BLDONATION.Controllers
 
         // POST: api/DonationRequests
         [HttpPost]
-        public async Task<ActionResult<DonationRequestDto>> PostDonationRequest([FromBody] CreateDonationRequestDto createDto)
+        public async Task<ActionResult<DonationRequestDto>> PostDonationRequest([FromForm] CreateDonationRequestDto createDto)
         {
             if (!ModelState.IsValid)
             {
@@ -407,7 +407,7 @@ namespace SWD_BLDONATION.Controllers
                     Name = dr.User.Name ?? "Unknown",
                     Email = dr.User.Email ?? "No Email Provided",
                     Phone = dr.User.Phone ?? "No Phone Provided",
-                    DateOfBirth = dr.User.DateOfBirth ?? DateOnly.FromDateTime(DateTime.UtcNow),
+                    DateOfBirth = dr.User.DateOfBirth.HasValue ? dr.User.DateOfBirth.Value : DateOnly.FromDateTime(DateTime.UtcNow),
                     Address = dr.User.Address ?? "No Address Provided",
                     Identification = dr.User.Identification ?? "No Identification Provided",
                     IsDeleted = dr.User.IsDeleted,
