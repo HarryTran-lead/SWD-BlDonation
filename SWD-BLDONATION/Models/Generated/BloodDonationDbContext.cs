@@ -279,14 +279,10 @@ public partial class BloodDonationDbContext : DbContext
                 .HasMaxLength(255)
                 .IsUnicode(false)
                 .HasColumnName("location");
-            entity.Property(e => e.Note)
-                .HasColumnType("text")
-                .HasColumnName("note");
             entity.Property(e => e.PreferredDate).HasColumnName("preferred_date");
             entity.Property(e => e.Quantity).HasColumnName("quantity");
             entity.Property(e => e.Status)
-                .HasMaxLength(10)
-                .IsUnicode(false)
+                .HasDefaultValue((byte)0)
                 .HasColumnName("status");
             entity.Property(e => e.UserId).HasColumnName("user_id");
             entity.Property(e => e.WeightKg)

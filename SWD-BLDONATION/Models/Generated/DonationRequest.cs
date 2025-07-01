@@ -15,15 +15,11 @@ public partial class DonationRequest
 
     public DateOnly? PreferredDate { get; set; }
 
-    public string? Status { get; set; }
-
     public string? Location { get; set; }
 
     public DateTime? CreatedAt { get; set; }
 
     public int? Quantity { get; set; }
-
-    public string? Note { get; set; }
 
     public decimal? HeightCm { get; set; }
 
@@ -34,6 +30,8 @@ public partial class DonationRequest
     public string? HealthInfo { get; set; }
 
     public DateOnly? DateOfBirth { get; set; }
+
+    public byte? Status { get; set; }
 
     public virtual BloodComponent? BloodComponent { get; set; }
 
