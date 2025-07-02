@@ -648,7 +648,7 @@ namespace SWD_BLDONATION.Controllers
                     .Where(dr =>
                         dr.BloodTypeId == bloodRequest.BloodTypeId &&
                         dr.BloodComponentId == bloodRequest.BloodComponentId &&
-                        dr.Status == "Available")
+                        dr.Status == 1)
                     .ToListAsync();
 
                 if (potentialDonations.Any())

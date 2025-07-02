@@ -14,10 +14,10 @@ namespace SWD_BLDONATION.Controllers
     [ApiController]
     public class UsersController : ControllerBase
     {
-        private readonly BloodDonationContext _context;
+        private readonly BloodDonationDbContext _context;
         private readonly ILogger<UsersController> _logger;
 
-        public UsersController(BloodDonationContext context, ILogger<UsersController> logger)
+        public UsersController(BloodDonationDbContext context, ILogger<UsersController> logger)
         {
             _context = context;
             _logger = logger;

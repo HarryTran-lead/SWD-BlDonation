@@ -25,7 +25,7 @@ builder.Services.AddAutoMapper(typeof(Program));
 
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 builder.Services.AddControllers();
-builder.Services.AddDbContext<BloodDonationContext>(options =>
+builder.Services.AddDbContext<BloodDonationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

@@ -14,11 +14,11 @@ namespace SWD_BLDONATION.Controllers
     [ApiController]
     public class BloodInventoriesController : ControllerBase
     {
-        private readonly BloodDonationContext _context;
+        private readonly BloodDonationDbContext _context;
         private readonly IMapper _mapper;
         private readonly ILogger<BloodInventoriesController> _logger;
 
-        public BloodInventoriesController(BloodDonationContext context, IMapper mapper, ILogger<BloodInventoriesController> logger)
+        public BloodInventoriesController(BloodDonationDbContext context, IMapper mapper, ILogger<BloodInventoriesController> logger)
         {
             _context = context;
             _mapper = mapper;

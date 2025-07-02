@@ -16,10 +16,10 @@ namespace SWD_BLDONATION.Controllers
     [ApiController]
     public class AuthController : ControllerBase
     {
-        private readonly BloodDonationContext _context;
+        private readonly BloodDonationDbContext _context;
         private readonly IConfiguration _configuration;
 
-        public AuthController(BloodDonationContext context, IConfiguration configuration)
+        public AuthController(BloodDonationDbContext context, IConfiguration configuration)
         {
             _context = context;
             _configuration = configuration;

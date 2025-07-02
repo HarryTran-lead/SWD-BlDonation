@@ -2,7 +2,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SWD_BLDONATION.DTOs.BloodComponentDTOs;
-using SWD_BLDONATION.DTOs.BloodRequestDTOs;
 using SWD_BLDONATION.DTOs.BloodTypeDTOs;
 using SWD_BLDONATION.DTOs.DonationRequestDTOs;
 using SWD_BLDONATION.DTOs.UserDTOs;
@@ -26,6 +25,18 @@ namespace SWD_BLDONATION.Controllers
             _mapper = mapper;
         }
 
+        // Helper method to map byte? Status to string
+        private static string? MapStatusToString(byte? status)
+        {
+            return status switch
+            {
+                0 => "Pending",
+                1 => "Successful",
+                2 => "Cancelled",
+                _ => null
+            };
+        }
+
         // GET: api/DonationRequests
         [HttpGet]
         public async Task<ActionResult<object>> GetDonationRequests([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
@@ -45,8 +56,7 @@ namespace SWD_BLDONATION.Controllers
             var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
             var donationRequests = await query
-                .OrderBy(dr => dr.Status == "Pending" ? 0 :
-                   dr.Status == "Successful" ? 1 : 2)
+                .OrderBy(dr => dr.Status == 0 ? 0 : dr.Status == 1 ? 1 : 2)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
@@ -58,11 +68,11 @@ namespace SWD_BLDONATION.Controllers
                 BloodTypeId = dr.BloodTypeId,
                 BloodComponentId = dr.BloodComponentId,
                 PreferredDate = dr.PreferredDate,
+                StatusName = MapStatusToString(dr.Status),
                 Status = dr.Status,
                 Location = dr.Location,
                 CreatedAt = dr.CreatedAt,
                 Quantity = dr.Quantity,
-                Note = dr.Note,
                 HeightCm = dr.HeightCm,
                 WeightKg = dr.WeightKg,
                 LastDonationDate = dr.LastDonationDate,
@@ -94,8 +104,8 @@ namespace SWD_BLDONATION.Controllers
                     HeightCm = dr.User.HeightCm ?? 0,
                     WeightKg = dr.User.WeightKg ?? 0,
                     MedicalHistory = dr.User.MedicalHistory ?? "No Medical History Provided",
-                    BloodTypeId = dr.User.BloodTypeId ?? dr.BloodTypeId, // Use DonationRequest's BloodTypeId as fallback
-                    BloodComponentId = dr.User.BloodComponentId ?? dr.BloodComponentId // Use DonationRequest's BloodComponentId as fallback
+                    BloodTypeId = dr.User.BloodTypeId ?? dr.BloodTypeId,
+                    BloodComponentId = dr.User.BloodComponentId ?? dr.BloodComponentId
                 } : null
             }).ToList();
 
@@ -125,6 +135,8 @@ namespace SWD_BLDONATION.Controllers
             }
 
             var donationRequestDto = _mapper.Map<DonationRequestDto>(donationRequest);
+            donationRequestDto.StatusName = MapStatusToString(donationRequest.Status);
+            donationRequestDto.Status = donationRequest.Status;
             return Ok(donationRequestDto);
         }
 
@@ -171,7 +183,11 @@ namespace SWD_BLDONATION.Controllers
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest(new { Message = "Invalid data submitted.", Errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage) });
+                return BadRequest(new
+                {
+                    Message = "Invalid data submitted.",
+                    Errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)
+                });
             }
 
             var donationRequest = _mapper.Map<DonationRequest>(createDto);
@@ -181,6 +197,9 @@ namespace SWD_BLDONATION.Controllers
             await _context.SaveChangesAsync();
 
             var resultDto = _mapper.Map<DonationRequestDto>(donationRequest);
+            resultDto.StatusName = MapStatusToString(donationRequest.Status);
+            resultDto.Status = donationRequest.Status;
+
             return CreatedAtAction(nameof(GetDonationRequest), new { id = resultDto.DonateRequestId }, resultDto);
         }
 
@@ -235,9 +254,20 @@ namespace SWD_BLDONATION.Controllers
             if (bloodComponentId.HasValue)
                 query = query.Where(dr => dr.BloodComponentId == bloodComponentId.Value);
             if (!string.IsNullOrWhiteSpace(status))
-                query = query.Where(dr => dr.Status != null && dr.Status.ToLower() == status.Trim().ToLower());
+            {
+                // Map input status string to byte
+                byte? statusByte = status.Trim().ToLowerInvariant() switch
+                {
+                    "pending" => 0,
+                    "successful" => 1,
+                    "cancelled" => 2,
+                    _ => null
+                };
+                if (statusByte.HasValue)
+                    query = query.Where(dr => dr.Status == statusByte.Value);
+            }
             if (!string.IsNullOrWhiteSpace(location))
-                query = query.Where(dr => dr.Location != null && dr.Location.ToLower().Contains(location.Trim().ToLower()));
+                query = query.Where(dr => dr.Location != null && dr.Location.Contains(location.Trim(), StringComparison.OrdinalIgnoreCase));
             if (preferredDate.HasValue)
                 query = query.Where(dr => dr.PreferredDate == preferredDate.Value);
             if (createdAfter.HasValue)
@@ -253,8 +283,7 @@ namespace SWD_BLDONATION.Controllers
             var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
             var donationRequests = await query
-                 .OrderBy(dr => dr.Status == "Pending" ? 0 :
-                   dr.Status == "Successful" ? 1 : 2)
+                .OrderBy(dr => dr.Status == 0 ? 0 : dr.Status == 1 ? 1 : 2)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
@@ -266,11 +295,11 @@ namespace SWD_BLDONATION.Controllers
                 BloodTypeId = dr.BloodTypeId,
                 BloodComponentId = dr.BloodComponentId,
                 PreferredDate = dr.PreferredDate,
+                StatusName = MapStatusToString(dr.Status),
                 Status = dr.Status,
                 Location = dr.Location,
                 CreatedAt = dr.CreatedAt,
                 Quantity = dr.Quantity,
-                Note = dr.Note,
                 HeightCm = dr.HeightCm,
                 WeightKg = dr.WeightKg,
                 LastDonationDate = dr.LastDonationDate,
@@ -302,8 +331,8 @@ namespace SWD_BLDONATION.Controllers
                     HeightCm = dr.User.HeightCm ?? 0,
                     WeightKg = dr.User.WeightKg ?? 0,
                     MedicalHistory = dr.User.MedicalHistory ?? "No Medical History Provided",
-                    BloodTypeId = dr.User.BloodTypeId ?? dr.BloodTypeId, // Use DonationRequest's BloodTypeId as fallback
-                    BloodComponentId = dr.User.BloodComponentId ?? dr.BloodComponentId // Use DonationRequest's BloodComponentId as fallback
+                    BloodTypeId = dr.User.BloodTypeId ?? dr.BloodTypeId,
+                    BloodComponentId = dr.User.BloodComponentId ?? dr.BloodComponentId
                 } : null
             }).ToList();
 
@@ -351,9 +380,20 @@ namespace SWD_BLDONATION.Controllers
             if (bloodComponentId.HasValue)
                 query = query.Where(dr => dr.BloodComponentId == bloodComponentId.Value);
             if (!string.IsNullOrWhiteSpace(status))
-                query = query.Where(dr => dr.Status != null && dr.Status.ToLower() == status.Trim().ToLower());
+            {
+                // Map input status string to byte
+                byte? statusByte = status.Trim().ToLowerInvariant() switch
+                {
+                    "pending" => 0,
+                    "successful" => 1,
+                    "cancelled" => 2,
+                    _ => null
+                };
+                if (statusByte.HasValue)
+                    query = query.Where(dr => dr.Status == statusByte.Value);
+            }
             if (!string.IsNullOrWhiteSpace(location))
-                query = query.Where(dr => dr.Location != null && dr.Location.ToLower().Contains(location.Trim().ToLower()));
+                query = query.Where(dr => dr.Location != null && dr.Location.Contains(location.Trim(), StringComparison.OrdinalIgnoreCase));
             if (preferredDate.HasValue)
                 query = query.Where(dr => dr.PreferredDate == preferredDate.Value);
             if (createdAfter.HasValue)
@@ -369,6 +409,7 @@ namespace SWD_BLDONATION.Controllers
             var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
             var donationRequests = await query
+                .OrderBy(dr => dr.Status == 0 ? 0 : dr.Status == 1 ? 1 : 2)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
@@ -380,11 +421,11 @@ namespace SWD_BLDONATION.Controllers
                 BloodTypeId = dr.BloodTypeId,
                 BloodComponentId = dr.BloodComponentId,
                 PreferredDate = dr.PreferredDate,
+                StatusName = MapStatusToString(dr.Status),
                 Status = dr.Status,
                 Location = dr.Location,
                 CreatedAt = dr.CreatedAt,
                 Quantity = dr.Quantity,
-                Note = dr.Note,
                 HeightCm = dr.HeightCm,
                 WeightKg = dr.WeightKg,
                 LastDonationDate = dr.LastDonationDate,
@@ -407,7 +448,7 @@ namespace SWD_BLDONATION.Controllers
                     Name = dr.User.Name ?? "Unknown",
                     Email = dr.User.Email ?? "No Email Provided",
                     Phone = dr.User.Phone ?? "No Phone Provided",
-                    DateOfBirth = dr.User.DateOfBirth.HasValue ? dr.User.DateOfBirth.Value : DateOnly.FromDateTime(DateTime.UtcNow),
+                    DateOfBirth = dr.User.DateOfBirth ?? DateOnly.FromDateTime(DateTime.UtcNow),
                     Address = dr.User.Address ?? "No Address Provided",
                     Identification = dr.User.Identification ?? "No Identification Provided",
                     IsDeleted = dr.User.IsDeleted,

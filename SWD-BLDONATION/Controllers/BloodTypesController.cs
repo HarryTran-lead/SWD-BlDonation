@@ -13,9 +13,9 @@ namespace SWD_BLDONATION.Controllers
     [ApiController]
     public class BloodTypesController : ControllerBase
     {
-        private readonly BloodDonationContext _context;
+        private readonly BloodDonationDbContext _context;
 
-        public BloodTypesController(BloodDonationContext context)
+        public BloodTypesController(BloodDonationDbContext context)
         {
             _context = context;
         }

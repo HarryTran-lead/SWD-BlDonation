@@ -4,7 +4,7 @@
     {
         public int? UserId { get; set; }  // Filter by user ID (nullable for optional filter)
         public int? BloodTypeId { get; set; }  // Filter by blood type (nullable for optional filter)
-        public string? Status { get; set; }  // Filter by donation status (nullable for optional filter)
+        public byte? Status { get; set; }
         public string? Location { get; set; }  // Filter by location (nullable for optional filter)
         public DateOnly? PreferredDate { get; set; }  // Filter by preferred donation date (nullable for optional filter)
         public DateTime? CreatedAfter { get; set; }  // Filter by creation date range (after this date)

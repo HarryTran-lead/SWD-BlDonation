@@ -85,7 +85,7 @@ namespace SWD_BLDONATION.Services
                             .Where(dr =>
                                 dr.BloodTypeId == bloodRequest.BloodTypeId &&
                                 dr.BloodComponentId == bloodRequest.BloodComponentId &&
-                                dr.Status == "Available")
+                                dr.Status == 1)
                             .ToListAsync();
 
                         foreach (var donation in potentialDonations)
@@ -135,7 +135,7 @@ namespace SWD_BLDONATION.Services
 
             // Retrieve completed DonationRequests
             var completedDonations = await context.DonationRequests
-                .Where(dr => dr.Status == "Completed")
+                .Where(dr => dr.Status == 2)
                 .ToListAsync();
 
             foreach (var donation in completedDonations)

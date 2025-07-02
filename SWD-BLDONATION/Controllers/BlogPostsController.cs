@@ -17,10 +17,10 @@ namespace SWD_BLDONATION.Controllers
     [ApiController]
     public class BlogPostsController : ControllerBase
     {
-        private readonly BloodDonationContext _context;
+        private readonly BloodDonationDbContext _context;
         private readonly string _uploadsFolder;
 
-        public BlogPostsController(BloodDonationContext context, IWebHostEnvironment env)
+        public BlogPostsController(BloodDonationDbContext context, IWebHostEnvironment env)
         {
             _context = context;
             _uploadsFolder = Path.Combine(env.WebRootPath, "assets", "Upload_Image");
@@ -191,7 +191,7 @@ namespace SWD_BLDONATION.Controllers
                 if (!allowedExtensions.Contains(extension))
                     return BadRequest(new { Message = "Invalid image format. Only PNG, JPG, JPEG, and GIF are allowed." });
 
-                var uniqueFileName = Guid.NewGuid().ToString() + ".png"; 
+                var uniqueFileName = Guid.NewGuid().ToString() + ".png";
                 var filePath = Path.Combine(_uploadsFolder, uniqueFileName);
 
                 try

@@ -11,11 +11,11 @@ namespace SWD_BLDONATION.DTOs.DonationRequestDTOs
         public int? BloodTypeId { get; set; }
         public int? BloodComponentId { get; set; }
         public DateOnly? PreferredDate { get; set; }
-        public string? Status { get; set; }
+        public string? StatusName { get; set; }
+        public byte? Status { get; set; }
         public string? Location { get; set; }
         public DateTime? CreatedAt { get; set; }
         public int? Quantity { get; set; }
-        public string? Note { get; set; }
         public decimal? HeightCm { get; set; }
         public decimal? WeightKg { get; set; }
         public DateOnly? LastDonationDate { get; set; }

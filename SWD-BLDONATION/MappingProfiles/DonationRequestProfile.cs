@@ -8,23 +8,30 @@ namespace SWD_BLDONATION.Mapping
     {
         public DonationRequestProfile()
         {
-            // Mapping from DonationRequest to DonationRequestDto
+            // Map từ Entity → DTO (đọc dữ liệu)
             CreateMap<DonationRequest, DonationRequestDto>()
-                .ForMember(dest => dest.BloodType, opt => opt.MapFrom(src => src.BloodType))
+                .ForMember(dest => dest.BloodType, opt => opt.MapFrom(src => src.BloodType))  // navigation
                 .ForMember(dest => dest.BloodComponent, opt => opt.MapFrom(src => src.BloodComponent))
                 .ForMember(dest => dest.User, opt => opt.MapFrom(src => src.User));
 
-            // Mapping from CreateDonationRequestDto to DonationRequest
+            // Map từ Create DTO → Entity (tạo mới)
             CreateMap<CreateDonationRequestDto, DonationRequest>()
-                .ForMember(dest => dest.DonateRequestId, opt => opt.Ignore())  // Ignore DonateRequestId as it will be auto-generated
-                .ForMember(dest => dest.BloodType, opt => opt.MapFrom(src => src.BloodTypeId))  // Mapping BloodTypeId to BloodType
-                .ForMember(dest => dest.BloodComponent, opt => opt.MapFrom(src => src.BloodComponentId));  // Mapping BloodComponentId to BloodComponent
+                .ForMember(dest => dest.DonateRequestId, opt => opt.Ignore())
+                // KHÔNG map BloodType, BloodComponent (navigation)
+                .ForMember(dest => dest.BloodType, opt => opt.Ignore())
+                .ForMember(dest => dest.BloodComponent, opt => opt.Ignore())
+                .ForMember(dest => dest.User, opt => opt.Ignore())
+                .ForMember(dest => dest.RequestMatches, opt => opt.Ignore())
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow));
 
-            // Mapping from UpdateDonationRequestDto to DonationRequest
+            // Map từ Update DTO → Entity (cập nhật)
             CreateMap<UpdateDonationRequestDto, DonationRequest>()
-                .ForMember(dest => dest.DonateRequestId, opt => opt.Ignore())  // Ignore DonateRequestId as it's not needed
-                .ForMember(dest => dest.BloodType, opt => opt.MapFrom(src => src.BloodTypeId))  // Mapping BloodTypeId to BloodType
-                .ForMember(dest => dest.BloodComponent, opt => opt.MapFrom(src => src.BloodComponentId));  // Mapping BloodComponentId to BloodComponent
+                .ForMember(dest => dest.DonateRequestId, opt => opt.Ignore())
+                .ForMember(dest => dest.BloodType, opt => opt.Ignore())
+                .ForMember(dest => dest.BloodComponent, opt => opt.Ignore())
+                .ForMember(dest => dest.User, opt => opt.Ignore())
+                .ForMember(dest => dest.RequestMatches, opt => opt.Ignore())
+                .ForMember(dest => dest.CreatedAt, opt => opt.Ignore()); // Không sửa CreatedAt khi update
         }
     }
 }
