@@ -1,10 +1,12 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SWD_BLDONATION.DTOs.BloodComponentDTOs;
 using SWD_BLDONATION.DTOs.BloodTypeDTOs;
 using SWD_BLDONATION.DTOs.DonationRequestDTOs;
 using SWD_BLDONATION.DTOs.UserDTOs;
+using SWD_BLDONATION.Models.Enums;
 using SWD_BLDONATION.Models.Generated;
 using System;
 using System.Linq;
@@ -18,11 +20,13 @@ namespace SWD_BLDONATION.Controllers
     {
         private readonly BloodDonationDbContext _context;
         private readonly IMapper _mapper;
+        private readonly ILogger<DonationRequestsController> _logger;
 
-        public DonationRequestsController(BloodDonationDbContext context, IMapper mapper)
+        public DonationRequestsController(BloodDonationDbContext context, IMapper mapper, ILogger<DonationRequestsController> logger)
         {
             _context = context;
             _mapper = mapper;
+            _logger = logger;
         }
 
         // Helper method to map byte? Status to string
@@ -142,7 +146,7 @@ namespace SWD_BLDONATION.Controllers
 
         // PUT: api/DonationRequests/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutDonationRequest(int id, [FromForm] UpdateDonationRequestDto updateDto)
+        public async Task<IActionResult> PutDonationRequest(int id, [FromBody] UpdateDonationRequestDto updateDto)
         {
             if (id != updateDto.DonateRequestId)
             {
@@ -181,8 +185,11 @@ namespace SWD_BLDONATION.Controllers
         [HttpPost]
         public async Task<ActionResult<DonationRequestDto>> PostDonationRequest([FromForm] CreateDonationRequestDto createDto)
         {
+            _logger.LogInformation("PostDonationRequest called with data: {@CreateDto}", createDto);
+
             if (!ModelState.IsValid)
             {
+                _logger.LogWarning("PostDonationRequest: Invalid data provided");
                 return BadRequest(new
                 {
                     Message = "Invalid data submitted.",
@@ -194,14 +201,44 @@ namespace SWD_BLDONATION.Controllers
             donationRequest.CreatedAt = DateTime.UtcNow;
 
             _context.DonationRequests.Add(donationRequest);
-            await _context.SaveChangesAsync();
 
-            var resultDto = _mapper.Map<DonationRequestDto>(donationRequest);
-            resultDto.StatusName = MapStatusToString(donationRequest.Status);
-            resultDto.Status = donationRequest.Status;
+            try
+            {
+                await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetDonationRequest), new { id = resultDto.DonateRequestId }, resultDto);
+                if (donationRequest.UserId.HasValue)
+                {
+                    var notification = new Notification
+                    {
+                        UserId = donationRequest.UserId,
+                        Message = $"Your donation request (ID: {donationRequest.DonateRequestId}) has been successfully created and is pending approval.",
+                        Type = "DonationRequest",
+                        Status = "Unread",
+                        SentAt = DateTime.UtcNow
+                    };
+
+                    _context.Notifications.Add(notification);
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation("Notification created for userId={UserId} for donation request id={DonateRequestId}", donationRequest.UserId, donationRequest.DonateRequestId);
+                }
+                else
+                {
+                    _logger.LogWarning("No UserId provided for notification creation for donation request id={DonateRequestId}", donationRequest.DonateRequestId);
+                }
+
+                var resultDto = _mapper.Map<DonationRequestDto>(donationRequest);
+                resultDto.StatusName = MapStatusToString(donationRequest.Status);
+                resultDto.Status = donationRequest.Status;
+
+                return CreatedAtAction(nameof(GetDonationRequest), new { id = resultDto.DonateRequestId }, resultDto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while creating donation request or notification");
+                return StatusCode(500, new { Message = "An error occurred while processing the request." });
+            }
         }
+
 
         // DELETE: api/DonationRequests/5
         [HttpDelete("{id}")]
@@ -217,6 +254,43 @@ namespace SWD_BLDONATION.Controllers
             await _context.SaveChangesAsync();
 
             return NoContent();
+        }
+
+        // PATCH: api/DonationRequests/status
+        [HttpPatch("status")]
+        public async Task<IActionResult> UpdateDonationRequestStatus([FromBody] UpdateDonationRequestStatusDto dto)
+        {
+            _logger.LogInformation("UpdateDonationRequestStatus called with id={Id}, status={Status}", dto.Id, dto.Status);
+
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid data provided for UpdateDonationRequestStatus: id={Id}", dto.Id);
+                return BadRequest(new
+                {
+                    Message = "Invalid data submitted.",
+                    Errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)
+                });
+            }
+
+            if (!Enum.IsDefined(typeof(BloodRequestStatus), dto.Status))
+            {
+                _logger.LogWarning("Invalid status value: id={Id}, status={Status}", dto.Id, dto.Status);
+                return BadRequest(new { Message = "Invalid status value." });
+            }
+
+            var donationRequest = await _context.DonationRequests.FindAsync(dto.Id);
+            if (donationRequest == null)
+            {
+                _logger.LogWarning("Donation request not found: id={Id}", dto.Id);
+                return NotFound(new { Message = "Donation request not found" });
+            }
+
+            donationRequest.Status = (byte)dto.Status;
+            _context.Entry(donationRequest).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Donation request status updated successfully: id={Id}, status={Status}", dto.Id, dto.Status);
+            return Ok(new { Message = "Donation request status updated successfully." });
         }
 
         // GET: api/DonationRequests/search
@@ -255,7 +329,6 @@ namespace SWD_BLDONATION.Controllers
                 query = query.Where(dr => dr.BloodComponentId == bloodComponentId.Value);
             if (!string.IsNullOrWhiteSpace(status))
             {
-                // Map input status string to byte
                 byte? statusByte = status.Trim().ToLowerInvariant() switch
                 {
                     "pending" => 0,
@@ -381,7 +454,6 @@ namespace SWD_BLDONATION.Controllers
                 query = query.Where(dr => dr.BloodComponentId == bloodComponentId.Value);
             if (!string.IsNullOrWhiteSpace(status))
             {
-                // Map input status string to byte
                 byte? statusByte = status.Trim().ToLowerInvariant() switch
                 {
                     "pending" => 0,

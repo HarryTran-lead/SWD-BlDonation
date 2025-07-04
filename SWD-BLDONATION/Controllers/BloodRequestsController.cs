@@ -329,8 +329,6 @@ namespace SWD_BLDONATION.Controllers
                 return BadRequest(new { message = "Invalid data submitted.", errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage) });
             }
 
-            Console.WriteLine(dto.DateOfBirth);
-
             var bloodRequest = new BloodRequest
             {
                 UserId = dto.UserId,
@@ -343,7 +341,6 @@ namespace SWD_BLDONATION.Controllers
                 Quantity = dto.Quantity,
                 Fulfilled = false,
                 HealthInfo = dto.HealthInfo,
-
                 Name = dto.Name,
                 Phone = dto.Phone,
                 DateOfBirth = dto.DateOfBirth,
@@ -351,11 +348,39 @@ namespace SWD_BLDONATION.Controllers
                 WeightKg = dto.WeightKg
             };
 
-
             _context.BloodRequests.Add(bloodRequest);
-            await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetBloodRequestById), new { id = bloodRequest.BloodRequestId }, bloodRequest);
+            try
+            {
+                await _context.SaveChangesAsync();
+
+                if (dto.UserId.HasValue)
+                {
+                    var notification = new Notification
+                    {
+                        UserId = dto.UserId,
+                        Message = $"Your blood request (ID: {bloodRequest.BloodRequestId}) has been successfully created and is pending approval.",
+                        Type = "BloodRequest",
+                        Status = "Unread",
+                        SentAt = DateTime.UtcNow
+                    };
+
+                    _context.Notifications.Add(notification);
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation("Notification created for userId={UserId} for blood request id={BloodRequestId}", dto.UserId, bloodRequest.BloodRequestId);
+                }
+                else
+                {
+                    _logger.LogWarning("No UserId provided for notification creation for blood request id={BloodRequestId}", bloodRequest.BloodRequestId);
+                }
+
+                return CreatedAtAction(nameof(GetBloodRequestById), new { id = bloodRequest.BloodRequestId }, bloodRequest);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while creating blood request or notification");
+                return StatusCode(500, new { message = "An error occurred while processing the request." });
+            }
         }
 
         // PUT: api/BloodRequests/{id}
@@ -383,10 +408,9 @@ namespace SWD_BLDONATION.Controllers
             return Ok(new { message = "Blood request updated successfully." });
         }
 
-        [HttpPatch("{id}/status")]
-        public async Task<IActionResult> UpdateBloodRequestStatus(int id, [FromForm] UpdateBloodRequestStatusDto dto)
+        [HttpPatch("status")]
+        public async Task<IActionResult> UpdateBloodRequestStatus([FromBody] UpdateBloodRequestStatusDto dto)
         {
-
             if (!ModelState.IsValid)
             {
                 return BadRequest(new { message = "Invalid data submitted.", errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage) });
@@ -397,7 +421,7 @@ namespace SWD_BLDONATION.Controllers
                 return BadRequest(new { message = "Invalid status value." });
             }
 
-            var bloodRequest = await _context.BloodRequests.FindAsync(id);
+            var bloodRequest = await _context.BloodRequests.FindAsync(dto.Id);
             if (bloodRequest == null)
             {
                 return NotFound(new { message = "Blood request not found" });
@@ -409,7 +433,6 @@ namespace SWD_BLDONATION.Controllers
 
             return Ok(new { message = "Blood request status updated successfully." });
         }
-
 
         // DELETE: api/BloodRequests/{id}
         [HttpDelete("{id}")]
@@ -571,14 +594,14 @@ namespace SWD_BLDONATION.Controllers
             });
         }
 
-        [HttpPatch("{id}/status/staff")]
-        public async Task<IActionResult> UpdateBloodRequestFromStaffStatus(int id, [FromForm] UpdateBloodRequestStatusDto dto)
+        [HttpPatch("status/staff")]
+        public async Task<IActionResult> UpdateBloodRequestFromStaffStatus([FromBody] UpdateBloodRequestStatusDto dto)
         {
-            _logger.LogInformation("UpdateBloodRequestStatus called with id={Id}, status={Status}", id, dto.Status);
+            _logger.LogInformation("UpdateBloodRequestStatus called with id={Id}, status={Status}", dto.Id, dto.Status);
 
             if (!ModelState.IsValid)
             {
-                _logger.LogWarning("Invalid data provided for UpdateBloodRequestStatus: id={Id}", id);
+                _logger.LogWarning("Invalid data provided for UpdateBloodRequestStatus: id={Id}", dto.Id);
                 return BadRequest(new
                 {
                     Message = "Invalid data submitted.",
@@ -588,16 +611,16 @@ namespace SWD_BLDONATION.Controllers
 
             if (!Enum.IsDefined(typeof(BloodRequestStatus), dto.Status))
             {
-                _logger.LogWarning("Invalid status value: id={Id}, status={Status}", id, dto.Status);
+                _logger.LogWarning("Invalid status value: id={Id}, status={Status}", dto.Id, dto.Status);
                 return BadRequest(new { Message = "Invalid status value." });
             }
 
             var bloodRequest = await _context.BloodRequests
-                .FirstOrDefaultAsync(br => br.BloodRequestId == id);
+                .FirstOrDefaultAsync(br => br.BloodRequestId == dto.Id);
 
             if (bloodRequest == null)
             {
-                _logger.LogWarning("Blood request not found: id={Id}", id);
+                _logger.LogWarning("Blood request not found: id={Id}", dto.Id);
                 return NotFound(new { Message = "Blood request not found" });
             }
 
@@ -612,14 +635,14 @@ namespace SWD_BLDONATION.Controllers
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error processing blood request fulfillment: id={Id}", id);
+                    _logger.LogError(ex, "Error processing blood request fulfillment: id={Id}", dto.Id);
                     return StatusCode(500, new { Message = "An error occurred while processing the blood request." });
                 }
             }
 
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Blood request status updated successfully: id={Id}, status={Status}", id, dto.Status);
+            _logger.LogInformation("Blood request status updated successfully: id={Id}, status={Status}", dto.Id, dto.Status);
             return Ok(new { Message = "Blood request status updated successfully." });
         }
 

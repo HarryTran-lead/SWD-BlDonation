@@ -2,6 +2,7 @@
 {
     public class UpdateBloodRequestStatusDto
     {
+        public int Id { get; set; }
         public byte Status { get; set; }
     }
 }
