@@ -38,36 +38,32 @@ namespace SWD_BLDONATION.Controllers
 
             var query = _context.BloodRequests
                 .Where(br => br.BloodRequestId == id)
-                .GroupJoin(_context.Users,
-                    br => br.UserId,
-                    u => u.UserId,
-                    (br, u) => new { BloodRequest = br, Users = u })
-                .SelectMany(
-                    x => x.Users.DefaultIfEmpty(),
-                    (x, u) => new
-                    {
-                        x.BloodRequest,
-                        Name = u != null ? u.Name : null,
-                        DateOfBirth = u != null ? u.DateOfBirth : (DateOnly?)null,
-                        Phone = u != null ? u.Phone : null
-                    })
                 .Join(_context.BloodTypes,
-                    x => x.BloodRequest.BloodTypeId,
+                    br => br.BloodTypeId,
                     bt => bt.BloodTypeId,
-                    (x, bt) => new { x.BloodRequest, x.Name, x.DateOfBirth, x.Phone, BloodTypeName = bt.Name + bt.RhFactor })
+                    (br, bt) => new
+                    {
+                        BloodRequest = br,
+                        BloodTypeName = bt.Name + bt.RhFactor
+                    })
                 .Join(_context.BloodComponents,
                     x => x.BloodRequest.BloodComponentId,
                     bc => bc.BloodComponentId,
-                    (x, bc) => new { x.BloodRequest, x.Name, x.DateOfBirth, x.Phone, x.BloodTypeName, BloodComponentName = bc.Name });
+                    (x, bc) => new
+                    {
+                        x.BloodRequest,
+                        x.BloodTypeName,
+                        BloodComponentName = bc.Name
+                    });
 
             var request = await query
                 .Select(x => new BloodRequestDto
                 {
                     BloodRequestId = x.BloodRequest.BloodRequestId,
                     UserId = x.BloodRequest.UserId,
-                    Name = x.Name,
-                    DateOfBirth = x.DateOfBirth,
-                    Phone = x.Phone,
+                    Name = x.BloodRequest.Name,
+                    DateOfBirth = x.BloodRequest.DateOfBirth,
+                    Phone = x.BloodRequest.Phone,
                     BloodTypeId = x.BloodRequest.BloodTypeId ?? 0,
                     BloodTypeName = x.BloodTypeName,
                     BloodComponentId = x.BloodRequest.BloodComponentId ?? 0,
@@ -117,41 +113,37 @@ namespace SWD_BLDONATION.Controllers
             }
 
             var query = _context.BloodRequests
-                .GroupJoin(_context.Users,
-                    br => br.UserId,
-                    u => u.UserId,
-                    (br, u) => new { BloodRequest = br, Users = u })
-                .SelectMany(
-                    x => x.Users.DefaultIfEmpty(),
-                    (x, u) => new
-                    {
-                        x.BloodRequest,
-                        Name = u != null ? u.Name : null,
-                        DateOfBirth = u != null ? u.DateOfBirth : (DateOnly?)null,
-                        Phone = u != null ? u.Phone : null
-                    })
                 .Join(_context.BloodTypes,
-                    x => x.BloodRequest.BloodTypeId,
+                    br => br.BloodTypeId,
                     bt => bt.BloodTypeId,
-                    (x, bt) => new { x.BloodRequest, x.Name, x.DateOfBirth, x.Phone, BloodTypeName = bt.Name + bt.RhFactor })
+                    (br, bt) => new
+                    {
+                        BloodRequest = br,
+                        BloodTypeName = bt.Name + bt.RhFactor
+                    })
                 .Join(_context.BloodComponents,
                     x => x.BloodRequest.BloodComponentId,
                     bc => bc.BloodComponentId,
-                    (x, bc) => new { x.BloodRequest, x.Name, x.DateOfBirth, x.Phone, x.BloodTypeName, BloodComponentName = bc.Name });
+                    (x, bc) => new
+                    {
+                        x.BloodRequest,
+                        x.BloodTypeName,
+                        BloodComponentName = bc.Name
+                    });
 
             var requests = await query
                 .OrderBy(x => x.BloodRequest.Status == (byte)BloodRequestStatus.Pending ? 0
-        : x.BloodRequest.Status == (byte)BloodRequestStatus.Successful ? 1
-        : 2)
+                    : x.BloodRequest.Status == (byte)BloodRequestStatus.Successful ? 1
+                    : 2)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(x => new BloodRequestDto
                 {
                     BloodRequestId = x.BloodRequest.BloodRequestId,
                     UserId = x.BloodRequest.UserId,
-                    Name = x.Name,
-                    DateOfBirth = x.DateOfBirth,
-                    Phone = x.Phone,
+                    Name = x.BloodRequest.Name,
+                    DateOfBirth = x.BloodRequest.DateOfBirth,
+                    Phone = x.BloodRequest.Phone,
                     BloodTypeId = x.BloodRequest.BloodTypeId ?? 0,
                     BloodTypeName = x.BloodTypeName,
                     BloodComponentId = x.BloodRequest.BloodComponentId ?? 0,
@@ -213,34 +205,30 @@ namespace SWD_BLDONATION.Controllers
             }
 
             var query = _context.BloodRequests
-                .GroupJoin(_context.Users,
-                    br => br.UserId,
-                    u => u.UserId,
-                    (br, u) => new { BloodRequest = br, Users = u })
-                .SelectMany(
-                    x => x.Users.DefaultIfEmpty(),
-                    (x, u) => new
-                    {
-                        x.BloodRequest,
-                        Name = u != null ? u.Name : null,
-                        DateOfBirth = u != null ? u.DateOfBirth : (DateOnly?)null,
-                        Phone = u != null ? u.Phone : null
-                    })
                 .Join(_context.BloodTypes,
-                    x => x.BloodRequest.BloodTypeId,
+                    br => br.BloodTypeId,
                     bt => bt.BloodTypeId,
-                    (x, bt) => new { x.BloodRequest, x.Name, x.DateOfBirth, x.Phone, BloodTypeName = bt.Name + bt.RhFactor })
+                    (br, bt) => new
+                    {
+                        BloodRequest = br,
+                        BloodTypeName = bt.Name + bt.RhFactor
+                    })
                 .Join(_context.BloodComponents,
                     x => x.BloodRequest.BloodComponentId,
                     bc => bc.BloodComponentId,
-                    (x, bc) => new { x.BloodRequest, x.Name, x.DateOfBirth, x.Phone, x.BloodTypeName, BloodComponentName = bc.Name });
+                    (x, bc) => new
+                    {
+                        x.BloodRequest,
+                        x.BloodTypeName,
+                        BloodComponentName = bc.Name
+                    });
 
             if (!string.IsNullOrWhiteSpace(keyword))
             {
                 string lowerKeyword = keyword.Trim().ToLower();
                 query = query.Where(x =>
-                    (x.Name != null && x.Name.ToLower().Contains(lowerKeyword)) ||
-                    (x.Phone != null && x.Phone.ToLower().Contains(lowerKeyword)) ||
+                    (x.BloodRequest.Name != null && x.BloodRequest.Name.ToLower().Contains(lowerKeyword)) ||
+                    (x.BloodRequest.Phone != null && x.BloodRequest.Phone.ToLower().Contains(lowerKeyword)) ||
                     (x.BloodRequest.Location != null && x.BloodRequest.Location.ToLower().Contains(lowerKeyword)));
             }
 
@@ -269,17 +257,17 @@ namespace SWD_BLDONATION.Controllers
 
             var requests = await query
                 .OrderBy(x => x.BloodRequest.Status == (byte)BloodRequestStatus.Pending ? 0
-        : x.BloodRequest.Status == (byte)BloodRequestStatus.Successful ? 1
-        : 2)
+                    : x.BloodRequest.Status == (byte)BloodRequestStatus.Successful ? 1
+                    : 2)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(x => new BloodRequestDto
                 {
                     BloodRequestId = x.BloodRequest.BloodRequestId,
                     UserId = x.BloodRequest.UserId,
-                    Name = x.Name,
-                    DateOfBirth = x.DateOfBirth,
-                    Phone = x.Phone,
+                    Name = x.BloodRequest.Name,
+                    DateOfBirth = x.BloodRequest.DateOfBirth,
+                    Phone = x.BloodRequest.Phone,
                     BloodTypeId = x.BloodRequest.BloodTypeId ?? 0,
                     BloodTypeName = x.BloodTypeName,
                     BloodComponentId = x.BloodRequest.BloodComponentId ?? 0,
@@ -621,14 +609,14 @@ namespace SWD_BLDONATION.Controllers
         // GET: api/BloodRequests/ByUser/search/{userId}
         [HttpGet("ByUser/search/{userId}")]
         public async Task<ActionResult<object>> SearchBloodRequestsByUser(
-    int userId,
-    [FromQuery] int page = 1,
-    [FromQuery] int pageSize = 10,
-    [FromQuery] string? keyword = null,
-    [FromQuery] int? bloodTypeId = null,
-    [FromQuery] int? bloodComponentId = null,
-    [FromQuery] bool? isEmergency = null,
-    [FromQuery] byte? status = null)
+            int userId,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? keyword = null,
+            [FromQuery] int? bloodTypeId = null,
+            [FromQuery] int? bloodComponentId = null,
+            [FromQuery] bool? isEmergency = null,
+            [FromQuery] byte? status = null)
         {
             _logger.LogInformation("SearchBloodRequestsByUser called with userId={UserId}, page={Page}, pageSize={PageSize}, keyword={Keyword}, bloodTypeId={BloodTypeId}, bloodComponentId={BloodComponentId}, isEmergency={IsEmergency}, status={Status}",
                 userId, page, pageSize, keyword, bloodTypeId, bloodComponentId, isEmergency, status);
@@ -886,76 +874,6 @@ namespace SWD_BLDONATION.Controllers
                 }
             }
         }
-
-        //public async Task HandleCompletedDonationRequest(int donationRequestId)
-        //{
-        //    _logger.LogInformation("Handling completed donation request: id={Id}", donationRequestId);
-
-        //    var donationRequest = await _context.DonationRequests
-        //        .FirstOrDefaultAsync(dr => dr.DonateRequestId == donationRequestId);
-
-        //    if (donationRequest == null || donationRequest.Status != "Completed")
-        //    {
-        //        return;
-        //    }
-
-        //    var inventory = await _context.BloodInventories
-        //        .FirstOrDefaultAsync(inv =>
-        //            inv.BloodTypeId == donationRequest.BloodTypeId &&
-        //            inv.BloodComponentId == donationRequest.BloodComponentId);
-
-        //    if (inventory == null)
-        //    {
-        //        inventory = new BloodInventory
-        //        {
-        //            BloodTypeId = donationRequest.BloodTypeId,
-        //            BloodComponentId = donationRequest.BloodComponentId,
-        //            Quantity = donationRequest.Quantity, 
-        //            LastUpdated = DateTime.UtcNow
-        //        };
-        //        _context.BloodInventories.Add(inventory);
-        //    }
-        //    else
-        //    {
-        //        inventory.Quantity += donationRequest.Quantity;
-        //        inventory.LastUpdated = DateTime.UtcNow;
-        //        _context.Entry(inventory).State = EntityState.Modified;
-        //    }
-
-        //    var pendingRequests = await _context.BloodRequests
-        //        .Where(br =>
-        //            br.BloodTypeId == donationRequest.BloodTypeId &&
-        //            br.BloodComponentId == donationRequest.BloodComponentId &&
-        //            br.Status == (byte)BloodRequestStatus.Pending &&
-        //            br.Fulfilled == false)
-        //        .ToListAsync();
-
-        //    foreach (var bloodRequest in pendingRequests)
-        //    {
-        //        if (inventory.Quantity >= bloodRequest.Quantity)
-        //        {
-        //            inventory.Quantity -= bloodRequest.Quantity;
-        //            bloodRequest.Fulfilled = true;
-        //            bloodRequest.FulfilledSource = "Inventory";
-
-        //            var match = new RequestMatch
-        //            {
-        //                BloodRequestId = bloodRequest.BloodRequestId,
-        //                DonationRequestId = donationRequest.DonateRequestId,
-        //                MatchStatus = "Completed",
-        //                ScheduledDate = DateOnly.FromDateTime(DateTime.UtcNow),
-        //                Notes = "Fulfilled from completed donation",
-        //                Type = "Auto"
-        //            };
-
-        //            _context.RequestMatches.Add(match);
-        //            _context.Entry(bloodRequest).State = EntityState.Modified;
-        //            _context.Entry(inventory).State = EntityState.Modified;
-        //        }
-        //    }
-
-        //    await _context.SaveChangesAsync();
-        //    _logger.LogInformation("Completed donation request processed: id={Id}", donationRequestId);
-        //}
     }
 }
+
