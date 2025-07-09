@@ -20,6 +20,7 @@ namespace SWD_BLDONATION.DTOs.DonationRequestDTOs
         public decimal? WeightKg { get; set; }
         public DateOnly? LastDonationDate { get; set; }
         public string? HealthInfo { get; set; }
+        public DateOnly? DateOfBirth { get; set; }
 
         // Navigation properties (DTO objects)
         public BloodTypeDto? BloodType { get; set; }

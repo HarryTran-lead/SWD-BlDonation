@@ -73,14 +73,45 @@ namespace SWD_BLDONATION.Services
                     if (matchedInventory != null)
                     {
                         matchedInventory.Quantity -= bloodRequest.Quantity;
+                        matchedInventory.LastUpdated = DateTime.UtcNow;
                         bloodRequest.Fulfilled = true;
                         bloodRequest.FulfilledSource = "Inventory";
 
+                        var bloodRequestInventory = new BloodRequestInventory
+                        {
+                            BloodRequestId = bloodRequest.BloodRequestId,
+                            InventoryId = matchedInventory.InventoryId,
+                            QuantityUnit = bloodRequest.Quantity,
+                            QuantityAllocated = bloodRequest.Quantity,
+                            AllocatedAt = DateTime.UtcNow,
+                            AllocatedBy = null
+                        };
+                        context.BloodRequestInventories.Add(bloodRequestInventory);
+
+
+                        if (bloodRequest.UserId.HasValue)
+                        {
+                            var notification = new Notification
+                            {
+                                UserId = bloodRequest.UserId.Value,
+                                Message = "Your request has been fulfilled. Please wait for our staff to call you to confirm the appointment.",
+                                Type = "BloodRequest",
+                                Status = "Unread",
+                                SentAt = DateTime.UtcNow
+                            };
+                            context.Notifications.Add(notification);
+                            _logger.LogInformation("Fulfillment notification created for userId={UserId} for blood request id={BloodRequestId}", bloodRequest.UserId, bloodRequest.BloodRequestId);
+                        }
+
                         context.Entry(matchedInventory).State = EntityState.Modified;
                         context.Entry(bloodRequest).State = EntityState.Modified;
+
+                        _logger.LogInformation("Blood request fulfilled from inventory: id={Id}, inventoryId={InventoryId}, quantity={Quantity}",
+                            bloodRequest.BloodRequestId, matchedInventory.InventoryId, bloodRequest.Quantity);
                     }
                     else
                     {
+
                         var potentialDonations = await context.DonationRequests
                             .Where(dr =>
                                 dr.BloodTypeId == bloodRequest.BloodTypeId &&
@@ -105,9 +136,8 @@ namespace SWD_BLDONATION.Services
                                     MatchStatus = "Pending",
                                     ScheduledDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
                                     Notes = "Auto-matched by periodic job",
-                                    Type = "Auto"
+                                    Type = "donation_to_request"
                                 };
-
                                 context.RequestMatches.Add(match);
                             }
                         }
@@ -133,7 +163,6 @@ namespace SWD_BLDONATION.Services
 
             _logger.LogInformation("Processing completed DonationRequests.");
 
-            // Retrieve completed DonationRequests
             var completedDonations = await context.DonationRequests
                 .Where(dr => dr.Status == 2)
                 .ToListAsync();
@@ -154,19 +183,47 @@ namespace SWD_BLDONATION.Services
 
                     if (hasMatches || inventoryUpdated)
                     {
+                        _logger.LogInformation("DonationRequest {DonationRequestId} already processed.", donation.DonateRequestId);
                         continue;
+                    }
+
+                    var inventory = await context.BloodInventories
+                        .FirstOrDefaultAsync(inv =>
+                            inv.BloodTypeId == donation.BloodTypeId &&
+                            inv.BloodComponentId == donation.BloodComponentId);
+
+                    int remainingQuantity = donation.Quantity.Value;
+
+                    if (inventory == null)
+                    {
+                        inventory = new BloodInventory
+                        {
+                            BloodTypeId = donation.BloodTypeId,
+                            BloodComponentId = donation.BloodComponentId,
+                            Quantity = remainingQuantity,
+                            Unit = "mL",
+                            LastUpdated = DateTime.UtcNow,
+                            InventoryLocation = "Default Location"
+                        };
+                        context.BloodInventories.Add(inventory);
+                        _logger.LogInformation(
+                            "Created new BloodInventory for BloodTypeId={BloodTypeId}, BloodComponentId={BloodComponentId}, Quantity={Quantity}",
+                            inventory.BloodTypeId, inventory.BloodComponentId, inventory.Quantity);
+                    }
+                    else
+                    {
+                        inventory.Quantity += remainingQuantity;
+                        inventory.LastUpdated = DateTime.UtcNow;
+                        context.Entry(inventory).State = EntityState.Modified;
                     }
 
                     var pendingRequests = await context.BloodRequests
                         .Where(br =>
                             br.BloodTypeId == donation.BloodTypeId &&
                             br.BloodComponentId == donation.BloodComponentId &&
-                            br.Status == (byte)BloodRequestStatus.Pending &&
+                            br.Status == (byte)BloodRequestStatus.Successful &&
                             br.Fulfilled == false)
                         .ToListAsync();
-
-                    bool usedForRequest = false;
-                    int remainingQuantity = donation.Quantity.Value;
 
                     foreach (var bloodRequest in pendingRequests)
                     {
@@ -174,6 +231,17 @@ namespace SWD_BLDONATION.Services
                         {
                             bloodRequest.Fulfilled = true;
                             bloodRequest.FulfilledSource = "Donation";
+
+                            var bloodRequestInventory = new BloodRequestInventory
+                            {
+                                BloodRequestId = bloodRequest.BloodRequestId,
+                                InventoryId = inventory.InventoryId,
+                                QuantityUnit = bloodRequest.Quantity,
+                                QuantityAllocated = bloodRequest.Quantity,
+                                AllocatedAt = DateTime.UtcNow,
+                                AllocatedBy = null
+                            };
+                            context.BloodRequestInventories.Add(bloodRequestInventory);
 
                             var match = new RequestMatch
                             {
@@ -184,41 +252,30 @@ namespace SWD_BLDONATION.Services
                                 Notes = "Fulfilled by completed donation",
                                 Type = "Auto"
                             };
-
                             context.RequestMatches.Add(match);
+
+                            if (bloodRequest.UserId.HasValue)
+                            {
+                                var notification = new Notification
+                                {
+                                    UserId = bloodRequest.UserId.Value,
+                                    Message = "Your request has been fulfilled. Please wait for our staff to call you to confirm the appointment.",
+                                    Type = "BloodRequest",
+                                    Status = "Unread",
+                                    SentAt = DateTime.UtcNow
+                                };
+                                context.Notifications.Add(notification);
+                                _logger.LogInformation("Fulfillment notification created for userId={UserId} for blood request id={BloodRequestId}", bloodRequest.UserId, bloodRequest.BloodRequestId);
+                            }
+
                             context.Entry(bloodRequest).State = EntityState.Modified;
 
                             remainingQuantity -= bloodRequest.Quantity.Value;
-                            usedForRequest = true;
-                        }
-                    }
-
-                    if (remainingQuantity > 0)
-                    {
-                        var inventory = await context.BloodInventories
-                            .FirstOrDefaultAsync(inv =>
-                                inv.BloodTypeId == donation.BloodTypeId &&
-                                inv.BloodComponentId == donation.BloodComponentId);
-
-                        if (inventory == null)
-                        {
-                            inventory = new BloodInventory
-                            {
-                                BloodTypeId = donation.BloodTypeId,
-                                BloodComponentId = donation.BloodComponentId,
-                                Quantity = remainingQuantity,
-                                LastUpdated = DateTime.UtcNow
-                            };
-                            context.BloodInventories.Add(inventory);
-                            _logger.LogInformation(
-                                "Created new BloodInventory for BloodTypeId={BloodTypeId}, BloodComponentId={BloodComponentId}, Quantity={Quantity}",
-                                inventory.BloodTypeId, inventory.BloodComponentId, inventory.Quantity);
-                        }
-                        else
-                        {
-                            inventory.Quantity += remainingQuantity;
-                            inventory.LastUpdated = DateTime.UtcNow;
+                            inventory.Quantity -= bloodRequest.Quantity.Value; // Update inventory
                             context.Entry(inventory).State = EntityState.Modified;
+
+                            _logger.LogInformation("Blood request fulfilled from donation: bloodRequestId={BloodRequestId}, donationRequestId={DonationRequestId}, quantity={Quantity}",
+                                bloodRequest.BloodRequestId, donation.DonateRequestId, bloodRequest.Quantity);
                         }
                     }
 
@@ -228,6 +285,7 @@ namespace SWD_BLDONATION.Services
                 catch (Exception ex)
                 {
                     await transaction.RollbackAsync();
+                    _logger.LogError(ex, "Error processing DonationRequest {DonationRequestId}", donation.DonateRequestId);
                 }
             }
 

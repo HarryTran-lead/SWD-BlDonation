@@ -81,6 +81,7 @@ namespace SWD_BLDONATION.Controllers
                 WeightKg = dr.WeightKg,
                 LastDonationDate = dr.LastDonationDate,
                 HealthInfo = dr.HealthInfo,
+                DateOfBirth = dr.User?.DateOfBirth ?? DateOnly.FromDateTime(DateTime.UtcNow),
                 BloodType = dr.BloodType != null ? new BloodTypeDto
                 {
                     BloodTypeId = dr.BloodType.BloodTypeId,
@@ -146,39 +147,157 @@ namespace SWD_BLDONATION.Controllers
 
         // PUT: api/DonationRequests/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutDonationRequest(int id, [FromBody] UpdateDonationRequestDto updateDto)
+        public async Task<IActionResult> PutDonationRequest(int id, [FromForm] UpdateDonationRequestDto dto)
         {
-            if (id != updateDto.DonateRequestId)
+            _logger.LogInformation("PutDonationRequest called with id={Id}, data={@Dto}", id, dto);
+
+            if (dto.DonateRequestId > 0 && id != dto.DonateRequestId)
             {
-                return BadRequest(new { Message = "ID mismatch." });
+                _logger.LogWarning("ID mismatch: route id={Id}, DTO DonateRequestId={DonateRequestId}", id, dto.DonateRequestId);
+                return BadRequest(new { Message = "DonateRequestId in the body must match the ID in the route." });
+            }
+
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid data provided for PutDonationRequest: id={Id}, errors={@Errors}", id, ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
+                return BadRequest(new
+                {
+                    Message = "Invalid data submitted.",
+                    Errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)
+                });
             }
 
             var donationRequest = await _context.DonationRequests.FindAsync(id);
             if (donationRequest == null)
             {
+                _logger.LogWarning("Donation request not found: id={Id}", id);
                 return NotFound(new { Message = "Donation request not found." });
             }
 
-            _mapper.Map(updateDto, donationRequest);
+            var originalUserId = donationRequest.UserId;
+            var originalBloodTypeId = donationRequest.BloodTypeId;
+            var originalBloodComponentId = donationRequest.BloodComponentId;
+            var originalQuantity = donationRequest.Quantity;
+
+            _mapper.Map(dto, donationRequest);
+
+            var updatedFields = new List<string>();
+            var skippedFields = new List<string>();
+
+            if (dto.UserId.HasValue)
+            {
+                if (dto.UserId.Value > 0)
+                {
+                    donationRequest.UserId = dto.UserId.Value;
+                    updatedFields.Add("UserId");
+                }
+                else
+                {
+                    donationRequest.UserId = originalUserId;
+                    skippedFields.Add($"UserId (value: {dto.UserId.Value})");
+                }
+            }
+            if (dto.BloodTypeId.HasValue)
+            {
+                if (dto.BloodTypeId.Value > 0)
+                {
+                    donationRequest.BloodTypeId = dto.BloodTypeId.Value;
+                    updatedFields.Add("BloodTypeId");
+                }
+                else
+                {
+                    donationRequest.BloodTypeId = originalBloodTypeId;
+                    skippedFields.Add($"BloodTypeId (value: {dto.BloodTypeId.Value})");
+                }
+            }
+            if (dto.BloodComponentId.HasValue)
+            {
+                if (dto.BloodComponentId.Value > 0)
+                {
+                    donationRequest.BloodComponentId = dto.BloodComponentId.Value;
+                    updatedFields.Add("BloodComponentId");
+                }
+                else
+                {
+                    donationRequest.BloodComponentId = originalBloodComponentId;
+                    skippedFields.Add($"BloodComponentId (value: {dto.BloodComponentId.Value})");
+                }
+            }
+            if (dto.Quantity.HasValue)
+            {
+                if (dto.Quantity.Value > 0)
+                {
+                    donationRequest.Quantity = dto.Quantity.Value;
+                    updatedFields.Add("Quantity");
+                }
+                else
+                {
+                    donationRequest.Quantity = originalQuantity;
+                    skippedFields.Add($"Quantity (value: {dto.Quantity.Value})");
+                }
+            }
+
+            if (dto.DonateRequestId > 0) updatedFields.Add("DonateRequestId");
+            if (dto.PreferredDate.HasValue) updatedFields.Add("PreferredDate");
+            if (dto.Location != null) updatedFields.Add("Location");
+            if (dto.Status.HasValue) updatedFields.Add("Status");
+            if (dto.HeightCm.HasValue) updatedFields.Add("HeightCm");
+            if (dto.WeightKg.HasValue) updatedFields.Add("WeightKg");
+            if (dto.HealthInfo != null) updatedFields.Add("HealthInfo");
+            if (dto.LastDonationDate.HasValue) updatedFields.Add("LastDonationDate");
+            if (dto.Name != null) updatedFields.Add("Name");
+            if (dto.DateOfBirth.HasValue) updatedFields.Add("DateOfBirth");
+
             _context.Entry(donationRequest).State = EntityState.Modified;
 
             try
             {
                 await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!_context.DonationRequests.Any(e => e.DonateRequestId == id))
+                _logger.LogInformation("Donation request updated successfully: id={Id}", id);
+
+                var updatedDonationRequest = await _context.DonationRequests
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(dr => dr.DonateRequestId == id);
+
+                if (updatedDonationRequest == null)
                 {
+                    _logger.LogError("Updated donation request not found after save: id={Id}", id);
+                    return StatusCode(500, new { Message = "Failed to verify updated donation request." });
+                }
+
+                _logger.LogInformation("Verified updated donation request id={Id}: UserId={UserId}, BloodTypeId={BloodTypeId}, BloodComponentId={BloodComponentId}, Quantity={Quantity}, Location={Location}, Status={Status}",
+                    id, updatedDonationRequest.UserId, updatedDonationRequest.BloodTypeId, updatedDonationRequest.BloodComponentId, updatedDonationRequest.Quantity, updatedDonationRequest.Location, updatedDonationRequest.Status);
+
+                if (updatedFields.Any())
+                {
+                    _logger.LogInformation("Fields updated for donation request id={Id}: {Fields}", id, string.Join(", ", updatedFields));
+                }
+                if (skippedFields.Any())
+                {
+                    _logger.LogInformation("Fields skipped (value 0) for donation request id={Id}: {Fields}", id, string.Join(", ", skippedFields));
+                }
+                if (!updatedFields.Any() && !skippedFields.Any())
+                {
+                    _logger.LogInformation("No fields provided for update for donation request id={Id}", id);
+                }
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                if (!_context.DonationRequests.Any(dr => dr.DonateRequestId == id))
+                {
+                    _logger.LogWarning("Concurrency issue: Donation request no longer exists: id={Id}", id);
                     return NotFound(new { Message = "Donation request not found." });
                 }
-                else
-                {
-                    throw;
-                }
+                _logger.LogError(ex, "Concurrency error updating donation request: id={Id}", id);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating donation request: id={Id}", id);
+                return StatusCode(500, new { Message = "An error occurred while updating the donation request." });
             }
 
-            return NoContent();
+            return Ok(new { Message = "Donation request updated successfully." });
         }
 
         // POST: api/DonationRequests
@@ -377,6 +496,7 @@ namespace SWD_BLDONATION.Controllers
                 WeightKg = dr.WeightKg,
                 LastDonationDate = dr.LastDonationDate,
                 HealthInfo = dr.HealthInfo,
+                DateOfBirth = dr.User?.DateOfBirth ?? DateOnly.FromDateTime(DateTime.UtcNow),
                 BloodType = dr.BloodType != null ? new BloodTypeDto
                 {
                     BloodTypeId = dr.BloodType.BloodTypeId,

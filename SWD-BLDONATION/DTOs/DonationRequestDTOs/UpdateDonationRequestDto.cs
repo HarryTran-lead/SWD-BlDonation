@@ -1,18 +1,46 @@
-﻿namespace SWD_BLDONATION.DTOs.DonationRequestDTOs
+﻿using SWD_BLDONATION.Models.Enums;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel;
+
+namespace SWD_BLDONATION.DTOs.DonationRequestDTOs
 {
     public class UpdateDonationRequestDto
     {
-        public int DonateRequestId { get; set; }  // ID of the donation request to update
-        public int? UserId { get; set; }  // User ID associated with the donation request
-        public int? BloodTypeId { get; set; }  // Blood type ID
-        public int? BloodComponentId { get; set; }  // Blood component ID
-        public DateOnly? PreferredDate { get; set; }  // Preferred donation date
-        public byte? Status { get; set; }
-        public string? Location { get; set; }  // Location for the donation
-        public int? Quantity { get; set; }  // Quantity of blood to be donated
-        public decimal? HeightCm { get; set; }  // Height of the person making the donation
-        public decimal? WeightKg { get; set; }  // Weight of the person making the donation
-        public string? HealthInfo { get; set; }  // Health information of the donor (renamed from 'MedicalHistory' for consistency)
-        public DateOnly? LastDonationDate { get; set; }  // Date of the last donation made by the donor
+        public int DonateRequestId { get; set; }
+        public int? UserId { get; set; }
+
+        public int? BloodTypeId { get; set; }
+
+        public int? BloodComponentId { get; set; }
+
+        public DateOnly? PreferredDate { get; set; }
+
+        [StringLength(255, ErrorMessage = "Location cannot exceed 255 characters.")]
+        [DefaultValue("")]
+        public string? Location { get; set; }
+
+        [Range(1, int.MaxValue, ErrorMessage = "Quantity must be positive.")]
+        public int? Quantity { get; set; }
+
+        public BloodRequestStatus? Status { get; set; }
+
+        [Range(0, 300, ErrorMessage = "HeightCm must be between 0 and 300 cm.")]
+        public decimal? HeightCm { get; set; }
+
+        [Range(0, 500, ErrorMessage = "WeightKg must be between 0 and 500 kg.")]
+        public decimal? WeightKg { get; set; }
+
+        [StringLength(1000, ErrorMessage = "HealthInfo cannot exceed 1000 characters.")]
+        [DefaultValue("")]
+        public string? HealthInfo { get; set; }
+
+        public DateOnly? LastDonationDate { get; set; }
+
+        [StringLength(255, ErrorMessage = "Name cannot exceed 255 characters.")]
+        [DefaultValue("")]
+        public string? Name { get; set; }
+
+        public DateOnly? DateOfBirth { get; set; }
+
     }
 }

@@ -13,5 +13,7 @@
         public decimal? WeightKg { get; set; }
         public string? HealthInfo { get; set; }
         public DateOnly? LastDonationDate { get; set; }
+
+        public DateOnly? DateOfBirth { get; set; }
     }
 }

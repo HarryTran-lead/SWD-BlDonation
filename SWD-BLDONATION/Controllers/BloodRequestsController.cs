@@ -387,23 +387,186 @@ namespace SWD_BLDONATION.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> PutBloodRequest(int id, [FromForm] UpdateBloodRequestDto dto)
         {
+            _logger.LogInformation("PutBloodRequest called with id={Id}, data={@Dto}", id, dto);
+
+            if (dto.BloodRequestId.HasValue && id != dto.BloodRequestId)
+            {
+                return BadRequest(new { message = "BloodRequestId in the body must match the ID in the route." });
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new
+                {
+                    message = "Invalid data submitted.",
+                    errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)
+                });
+            }
+
             var bloodRequest = await _context.BloodRequests.FindAsync(id);
             if (bloodRequest == null)
             {
                 return NotFound(new { message = "Blood request not found" });
             }
 
-            if (dto.Status.HasValue && !Enum.IsDefined(typeof(BloodRequestStatus), dto.Status))
+            if (dto.Status.HasValue && !Enum.IsDefined(typeof(BloodRequestStatus), dto.Status.Value))
             {
                 return BadRequest(new { message = "Invalid status value." });
             }
 
-            bloodRequest.Status = dto.Status.HasValue
-                ? (byte)dto.Status.Value
-                : bloodRequest.Status;
+            var updatedFields = new List<string>();
+            var skippedFields = new List<string>();
 
+            if (dto.BloodRequestId.HasValue)
+            {
+                if (dto.BloodRequestId.Value > 0)
+                {
+                    bloodRequest.BloodRequestId = dto.BloodRequestId.Value;
+                    updatedFields.Add("BloodRequestId");
+                }
+                else
+                {
+                    skippedFields.Add($"BloodRequestId (value: {dto.BloodRequestId.Value})");
+                }
+            }
+            if (dto.UserId.HasValue)
+            {
+                if (dto.UserId.Value > 0)
+                {
+                    bloodRequest.UserId = dto.UserId.Value;
+                    updatedFields.Add("UserId");
+                }
+                else
+                {
+                    skippedFields.Add($"UserId (value: {dto.UserId.Value})");
+                }
+            }
+            if (dto.BloodTypeId.HasValue)
+            {
+                if (dto.BloodTypeId.Value > 0)
+                {
+                    bloodRequest.BloodTypeId = dto.BloodTypeId.Value;
+                    updatedFields.Add("BloodTypeId");
+                }
+                else
+                {
+                    skippedFields.Add($"BloodTypeId (value: {dto.BloodTypeId.Value})");
+                }
+            }
+            if (dto.BloodComponentId.HasValue)
+            {
+                if (dto.BloodComponentId.Value > 0)
+                {
+                    bloodRequest.BloodComponentId = dto.BloodComponentId.Value;
+                    updatedFields.Add("BloodComponentId");
+                }
+                else
+                {
+                    skippedFields.Add($"BloodComponentId (value: {dto.BloodComponentId.Value})");
+                }
+            }
+            if (dto.Quantity.HasValue)
+            {
+                if (dto.Quantity.Value > 0)
+                {
+                    bloodRequest.Quantity = dto.Quantity.Value;
+                    updatedFields.Add("Quantity");
+                }
+                else
+                {
+                    skippedFields.Add($"Quantity (value: {dto.Quantity.Value})");
+                }
+            }
+
+            if (dto.Name != null)
+            {
+                bloodRequest.Name = dto.Name;
+                updatedFields.Add("Name");
+            }
+            if (dto.DateOfBirth.HasValue)
+            {
+                bloodRequest.DateOfBirth = dto.DateOfBirth;
+                updatedFields.Add("DateOfBirth");
+            }
+            if (dto.Phone != null)
+            {
+                bloodRequest.Phone = dto.Phone;
+                updatedFields.Add("Phone");
+            }
+            if (dto.IsEmergency.HasValue)
+            {
+                bloodRequest.IsEmergency = dto.IsEmergency;
+                updatedFields.Add("IsEmergency");
+            }
+            if (dto.Status.HasValue)
+            {
+                bloodRequest.Status = (byte)dto.Status.Value;
+                updatedFields.Add("Status");
+            }
+            if (dto.Location != null)
+            {
+                bloodRequest.Location = dto.Location;
+                updatedFields.Add("Location");
+            }
+            if (dto.Fulfilled.HasValue)
+            {
+                bloodRequest.Fulfilled = dto.Fulfilled;
+                updatedFields.Add("Fulfilled");
+            }
+            if (dto.FulfilledSource != null)
+            {
+                bloodRequest.FulfilledSource = dto.FulfilledSource;
+                updatedFields.Add("FulfilledSource");
+            }
+            if (dto.HeightCm.HasValue)
+            {
+                bloodRequest.HeightCm = dto.HeightCm;
+                updatedFields.Add("HeightCm");
+            }
+            if (dto.WeightKg.HasValue)
+            {
+                bloodRequest.WeightKg = dto.WeightKg;
+                updatedFields.Add("WeightKg");
+            }
+            if (dto.HealthInfo != null)
+            {
+                bloodRequest.HealthInfo = dto.HealthInfo;
+                updatedFields.Add("HealthInfo");
+            }
+
+            // Log updated and skipped fields
+            if (updatedFields.Any())
+            {
+                _logger.LogInformation("Fields updated for blood request id={Id}: {Fields}", id, string.Join(", ", updatedFields));
+            }
+            if (skippedFields.Any())
+            {
+                _logger.LogInformation("Fields skipped (value 0) for blood request id={Id}: {Fields}", id, string.Join(", ", skippedFields));
+            }
+            if (!updatedFields.Any() && !skippedFields.Any())
+            {
+                _logger.LogInformation("No fields provided for update for blood request id={Id}", id);
+            }
+
+            // Mark the entity as modified
             _context.Entry(bloodRequest).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                if (!_context.BloodRequests.Any(br => br.BloodRequestId == id))
+                {
+                    return NotFound(new { message = "Blood request not found." });
+                }
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while updating the blood request." });
+            }
 
             return Ok(new { message = "Blood request updated successfully." });
         }
@@ -458,14 +621,14 @@ namespace SWD_BLDONATION.Controllers
         // GET: api/BloodRequests/ByUser/search/{userId}
         [HttpGet("ByUser/search/{userId}")]
         public async Task<ActionResult<object>> SearchBloodRequestsByUser(
-            int userId,
-            [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 10,
-            [FromQuery] string? keyword = null,
-            [FromQuery] int? bloodTypeId = null,
-            [FromQuery] int? bloodComponentId = null,
-            [FromQuery] bool? isEmergency = null,
-            [FromQuery] byte? status = null)
+    int userId,
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 10,
+    [FromQuery] string? keyword = null,
+    [FromQuery] int? bloodTypeId = null,
+    [FromQuery] int? bloodComponentId = null,
+    [FromQuery] bool? isEmergency = null,
+    [FromQuery] byte? status = null)
         {
             _logger.LogInformation("SearchBloodRequestsByUser called with userId={UserId}, page={Page}, pageSize={PageSize}, keyword={Keyword}, bloodTypeId={BloodTypeId}, bloodComponentId={BloodComponentId}, isEmergency={IsEmergency}, status={Status}",
                 userId, page, pageSize, keyword, bloodTypeId, bloodComponentId, isEmergency, status);
@@ -478,28 +641,12 @@ namespace SWD_BLDONATION.Controllers
 
             var query = _context.BloodRequests
                 .Where(br => br.UserId == userId)
-                .GroupJoin(_context.Users,
-                    br => br.UserId,
-                    u => u.UserId,
-                    (br, u) => new { BloodRequest = br, Users = u })
-                .SelectMany(
-                    x => x.Users.DefaultIfEmpty(),
-                    (x, u) => new
-                    {
-                        x.BloodRequest,
-                        Name = u != null ? u.Name : null,
-                        DateOfBirth = u != null ? u.DateOfBirth : (DateOnly?)null,
-                        Phone = u != null ? u.Phone : null
-                    })
                 .Join(_context.BloodTypes,
-                    x => x.BloodRequest.BloodTypeId,
+                    br => br.BloodTypeId,
                     bt => bt.BloodTypeId,
-                    (x, bt) => new
+                    (br, bt) => new
                     {
-                        x.BloodRequest,
-                        x.Name,
-                        x.DateOfBirth,
-                        x.Phone,
+                        BloodRequest = br,
                         BloodTypeName = bt.Name + bt.RhFactor
                     })
                 .Join(_context.BloodComponents,
@@ -508,9 +655,6 @@ namespace SWD_BLDONATION.Controllers
                     (x, bc) => new
                     {
                         x.BloodRequest,
-                        x.Name,
-                        x.DateOfBirth,
-                        x.Phone,
                         x.BloodTypeName,
                         BloodComponentName = bc.Name
                     });
@@ -519,8 +663,8 @@ namespace SWD_BLDONATION.Controllers
             {
                 string lowerKeyword = keyword.Trim().ToLower();
                 query = query.Where(x =>
-                    (x.Name != null && x.Name.ToLower().Contains(lowerKeyword)) ||
-                    (x.Phone != null && x.Phone.ToLower().Contains(lowerKeyword)) ||
+                    (x.BloodRequest.Name != null && x.BloodRequest.Name.ToLower().Contains(lowerKeyword)) ||
+                    (x.BloodRequest.Phone != null && x.BloodRequest.Phone.ToLower().Contains(lowerKeyword)) ||
                     (x.BloodRequest.Location != null && x.BloodRequest.Location.ToLower().Contains(lowerKeyword)));
             }
 
@@ -554,9 +698,9 @@ namespace SWD_BLDONATION.Controllers
                 {
                     BloodRequestId = x.BloodRequest.BloodRequestId,
                     UserId = x.BloodRequest.UserId,
-                    Name = x.Name,
-                    DateOfBirth = x.DateOfBirth,
-                    Phone = x.Phone,
+                    Name = x.BloodRequest.Name,
+                    DateOfBirth = x.BloodRequest.DateOfBirth,
+                    Phone = x.BloodRequest.Phone,
                     BloodTypeId = x.BloodRequest.BloodTypeId ?? 0,
                     BloodTypeName = x.BloodTypeName,
                     BloodComponentId = x.BloodRequest.BloodComponentId ?? 0,
@@ -631,6 +775,20 @@ namespace SWD_BLDONATION.Controllers
             {
                 try
                 {
+                    if (bloodRequest.UserId.HasValue)
+                    {
+                        var approvalNotification = new Notification
+                        {
+                            UserId = bloodRequest.UserId.Value,
+                            Message = "Your request has been approved.",
+                            Type = "BloodRequest",
+                            Status = "Unread",
+                            SentAt = DateTime.UtcNow
+                        };
+                        _context.Notifications.Add(approvalNotification);
+                        _logger.LogInformation("Approval notification created for userId={UserId} for blood request id={BloodRequestId}", bloodRequest.UserId, bloodRequest.BloodRequestId);
+                    }
+
                     await ProcessBloodRequestFulfillment(bloodRequest);
                 }
                 catch (Exception ex)
@@ -650,6 +808,11 @@ namespace SWD_BLDONATION.Controllers
         {
             _logger.LogInformation("Processing blood request fulfillment: id={Id}", bloodRequest.BloodRequestId);
 
+            if (bloodRequest.Fulfilled == true)
+            {
+                return;
+            }
+
             var matchedInventory = await _context.BloodInventories
                 .FirstOrDefaultAsync(inv =>
                     inv.BloodTypeId == bloodRequest.BloodTypeId &&
@@ -659,11 +822,37 @@ namespace SWD_BLDONATION.Controllers
             if (matchedInventory != null)
             {
                 matchedInventory.Quantity -= bloodRequest.Quantity;
+                matchedInventory.LastUpdated = DateTime.UtcNow;
                 bloodRequest.Fulfilled = true;
                 bloodRequest.FulfilledSource = "Inventory";
 
+                // Log inventory usage
+                var bloodRequestInventory = new BloodRequestInventory
+                {
+                    BloodRequestId = bloodRequest.BloodRequestId,
+                    InventoryId = matchedInventory.InventoryId,
+                    QuantityUnit = bloodRequest.Quantity,
+                    QuantityAllocated = bloodRequest.Quantity,
+                    AllocatedAt = DateTime.UtcNow,
+                    AllocatedBy = null
+                };
+                _context.BloodRequestInventories.Add(bloodRequestInventory);
+
                 _context.Entry(matchedInventory).State = EntityState.Modified;
                 _context.Entry(bloodRequest).State = EntityState.Modified;
+
+                if (bloodRequest.UserId.HasValue)
+                {
+                    var fulfillmentNotification = new Notification
+                    {
+                        UserId = bloodRequest.UserId.Value,
+                        Message = "Your request has been fulfilled. Please wait for our staff to call you to confirm the appointment.",
+                        Type = "BloodRequest",
+                        Status = "Unread",
+                        SentAt = DateTime.UtcNow
+                    };
+                    _context.Notifications.Add(fulfillmentNotification);
+                }
             }
             else
             {
@@ -687,9 +876,9 @@ namespace SWD_BLDONATION.Controllers
                             Notes = "Auto-matched for blood need",
                             Type = "Auto"
                         };
-
                         _context.RequestMatches.Add(match);
                     }
+                    _logger.LogInformation("Created {Count} donation request matches for blood request: id={Id}", potentialDonations.Count, bloodRequest.BloodRequestId);
                 }
                 else
                 {
