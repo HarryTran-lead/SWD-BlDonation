@@ -58,7 +58,7 @@ namespace SWD_BLDONATION.Controllers
 
         // PUT: api/BloodTypes/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutBloodType(int id, UpdateBloodTypeDto dto)
+        public async Task<IActionResult> PutBloodType(int id, [FromForm] UpdateBloodTypeDto dto)
         {
             var bloodType = await _context.BloodTypes.FindAsync(id);
             if (bloodType == null)
@@ -84,7 +84,7 @@ namespace SWD_BLDONATION.Controllers
 
         // POST: api/BloodTypes
         [HttpPost]
-        public async Task<ActionResult<BloodTypeDto>> PostBloodType(CreateBloodTypeDto dto)
+        public async Task<ActionResult<BloodTypeDto>> PostBloodType([FromForm] CreateBloodTypeDto dto)
         {
             var bloodType = new BloodType
             {

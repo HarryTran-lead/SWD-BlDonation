@@ -50,7 +50,6 @@ namespace SWD_BLDONATION.Controllers
 
             var query = _context.BloodComponents.AsQueryable();
 
-            // Apply search filters
             if (bloodComponentId.HasValue)
                 query = query.Where(bc => bc.BloodComponentId == bloodComponentId.Value);
             if (!string.IsNullOrWhiteSpace(name))
@@ -100,7 +99,7 @@ namespace SWD_BLDONATION.Controllers
 
         // PUT: api/BloodComponents/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutBloodComponent(int id, UpdateBloodComponentDto dto)
+        public async Task<IActionResult> PutBloodComponent(int id, [FromForm] UpdateBloodComponentDto dto)
         {
             var bloodComponent = await _context.BloodComponents.FindAsync(id);
             if (bloodComponent == null)
@@ -125,7 +124,7 @@ namespace SWD_BLDONATION.Controllers
 
         // POST: api/BloodComponents
         [HttpPost]
-        public async Task<ActionResult<BloodComponentDto>> PostBloodComponent(CreateBloodComponentDto dto)
+        public async Task<ActionResult<BloodComponentDto>> PostBloodComponent([FromForm] CreateBloodComponentDto dto)
         {
             var bloodComponent = new BloodComponent
             {
