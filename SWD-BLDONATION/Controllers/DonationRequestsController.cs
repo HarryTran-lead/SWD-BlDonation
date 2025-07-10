@@ -3,11 +3,13 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SWD_BLDONATION.DTOs.BloodComponentDTOs;
+using SWD_BLDONATION.DTOs.BloodRequestDTOs;
 using SWD_BLDONATION.DTOs.BloodTypeDTOs;
 using SWD_BLDONATION.DTOs.DonationRequestDTOs;
 using SWD_BLDONATION.DTOs.UserDTOs;
 using SWD_BLDONATION.Models.Enums;
 using SWD_BLDONATION.Models.Generated;
+using SWD_BLDONATION.Provider;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -333,7 +335,7 @@ namespace SWD_BLDONATION.Controllers
                         Message = $"Your donation request (ID: {donationRequest.DonateRequestId}) has been successfully created and is pending approval.",
                         Type = "DonationRequest",
                         Status = "Unread",
-                        SentAt = DateTime.UtcNow
+                        SentAt = VietnamDateTimeProvider.Now
                     };
 
                     _context.Notifications.Add(notification);
@@ -415,127 +417,146 @@ namespace SWD_BLDONATION.Controllers
         // GET: api/DonationRequests/search
         [HttpGet("search")]
         public async Task<ActionResult<object>> SearchDonationRequests(
-            [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 10,
-            [FromQuery] int? userId = null,
-            [FromQuery] int? bloodTypeId = null,
-            [FromQuery] int? bloodComponentId = null,
-            [FromQuery] string? status = null,
-            [FromQuery] string? location = null,
-            [FromQuery] DateOnly? preferredDate = null,
-            [FromQuery] DateTime? createdAfter = null,
-            [FromQuery] DateTime? createdBefore = null,
-            [FromQuery] int? quantityMin = null,
-            [FromQuery] int? quantityMax = null)
+     [FromQuery] int page = 1,
+     [FromQuery] int pageSize = 10,
+     [FromQuery] string? keyword = null,
+     [FromQuery] int? bloodTypeId = null,
+     [FromQuery] int? bloodComponentId = null,
+     [FromQuery] byte? status = null)
         {
+            _logger.LogInformation("SearchDonationRequests called with page={Page}, pageSize={PageSize}, keyword={Keyword}, bloodTypeId={BloodTypeId}, bloodComponentId={BloodComponentId}, status={Status}",
+                page, pageSize, keyword, bloodTypeId, bloodComponentId, status);
+
             if (page < 1 || pageSize < 1)
             {
+                _logger.LogWarning("Invalid page or pageSize: page={Page}, pageSize={PageSize}", page, pageSize);
                 return BadRequest(new { Message = "Invalid page or pageSize." });
             }
 
             var query = _context.DonationRequests
-                .Include(dr => dr.BloodType)
-                .Include(dr => dr.BloodComponent)
-                .Include(dr => dr.User)
-                .AsQueryable();
+                .Join(_context.BloodTypes,
+                    dr => dr.BloodTypeId,
+                    bt => bt.BloodTypeId,
+                    (dr, bt) => new
+                    {
+                        DonationRequest = dr,
+                        BloodType = bt
+                    })
+                .Join(_context.BloodComponents,
+                    x => x.DonationRequest.BloodComponentId,
+                    bc => bc.BloodComponentId,
+                    (x, bc) => new
+                    {
+                        x.DonationRequest,
+                        x.BloodType,
+                        BloodComponent = bc
+                    })
+                .Join(_context.Users,
+                    x => x.DonationRequest.UserId,
+                    u => u.UserId,
+                    (x, u) => new
+                    {
+                        x.DonationRequest,
+                        x.BloodType,
+                        x.BloodComponent,
+                        User = u
+                    });
 
-            // Apply search filters
-            if (userId.HasValue)
-                query = query.Where(dr => dr.UserId == userId.Value);
-            if (bloodTypeId.HasValue)
-                query = query.Where(dr => dr.BloodTypeId == bloodTypeId.Value);
-            if (bloodComponentId.HasValue)
-                query = query.Where(dr => dr.BloodComponentId == bloodComponentId.Value);
-            if (!string.IsNullOrWhiteSpace(status))
+            if (!string.IsNullOrWhiteSpace(keyword))
             {
-                byte? statusByte = status.Trim().ToLowerInvariant() switch
-                {
-                    "pending" => 0,
-                    "successful" => 1,
-                    "cancelled" => 2,
-                    _ => null
-                };
-                if (statusByte.HasValue)
-                    query = query.Where(dr => dr.Status == statusByte.Value);
+                string lowerKeyword = keyword.Trim().ToLower();
+                query = query.Where(x =>
+                    (x.User.Name != null && x.User.Name.ToLower().Contains(lowerKeyword)) ||
+                    (x.User.Phone != null && x.User.Phone.ToLower().Contains(lowerKeyword)) ||
+                    (x.DonationRequest.Location != null && x.DonationRequest.Location.ToLower().Contains(lowerKeyword)));
             }
-            if (!string.IsNullOrWhiteSpace(location))
-                query = query.Where(dr => dr.Location != null && dr.Location.Contains(location.Trim(), StringComparison.OrdinalIgnoreCase));
-            if (preferredDate.HasValue)
-                query = query.Where(dr => dr.PreferredDate == preferredDate.Value);
-            if (createdAfter.HasValue)
-                query = query.Where(dr => dr.CreatedAt >= createdAfter.Value);
-            if (createdBefore.HasValue)
-                query = query.Where(dr => dr.CreatedAt <= createdBefore.Value);
-            if (quantityMin.HasValue)
-                query = query.Where(dr => dr.Quantity >= quantityMin.Value);
-            if (quantityMax.HasValue)
-                query = query.Where(dr => dr.Quantity <= quantityMax.Value);
+
+            if (bloodTypeId.HasValue)
+            {
+                query = query.Where(x => x.DonationRequest.BloodTypeId == bloodTypeId.Value);
+            }
+
+            if (bloodComponentId.HasValue)
+            {
+                query = query.Where(x => x.DonationRequest.BloodComponentId == bloodComponentId.Value);
+            }
+
+            if (status.HasValue)
+            {
+                query = query.Where(x => x.DonationRequest.Status == status.Value);
+            }
 
             var totalCount = await query.CountAsync();
             var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
             var donationRequests = await query
-                .OrderBy(dr => dr.Status == 0 ? 0 : dr.Status == 1 ? 1 : 2)
+                .OrderBy(x => x.DonationRequest.Status == (byte)DonationRequestStatus.Pending ? 0
+                    : x.DonationRequest.Status == (byte)DonationRequestStatus.Successful ? 1
+                    : 2)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
+                .Select(x => new DonationRequestDto
+                {
+                    DonateRequestId = x.DonationRequest.DonateRequestId,
+                    UserId = x.DonationRequest.UserId,
+                    BloodTypeId = x.DonationRequest.BloodTypeId,
+                    BloodComponentId = x.DonationRequest.BloodComponentId,
+                    PreferredDate = x.DonationRequest.PreferredDate,
+                    Status = x.DonationRequest.Status,
+                    StatusName = x.DonationRequest.Status.HasValue ? ((DonationRequestStatus)x.DonationRequest.Status.Value).ToString() : null,
+                    Location = x.DonationRequest.Location,
+                    CreatedAt = x.DonationRequest.CreatedAt,
+                    Quantity = x.DonationRequest.Quantity,
+                    HeightCm = x.DonationRequest.HeightCm,
+                    WeightKg = x.DonationRequest.WeightKg,
+                    LastDonationDate = x.DonationRequest.LastDonationDate,
+                    HealthInfo = x.DonationRequest.HealthInfo,
+                    DateOfBirth = x.User.DateOfBirth,
+                    BloodType = x.BloodType != null ? new BloodTypeDto
+                    {
+                        BloodTypeId = x.BloodType.BloodTypeId,
+                        Name = x.BloodType.Name,
+                        RhFactor = x.BloodType.RhFactor
+                    } : null,
+                    BloodComponent = x.BloodComponent != null ? new BloodComponentDto
+                    {
+                        BloodComponentId = x.BloodComponent.BloodComponentId,
+                        Name = x.BloodComponent.Name
+                    } : null,
+                    User = x.User != null ? new UserDto
+                    {
+                        UserId = x.User.UserId,
+                        UserName = x.User.UserName,
+                        Name = x.User.Name,
+                        Email = x.User.Email,
+                        Phone = x.User.Phone,
+                        DateOfBirth = x.User.DateOfBirth,
+                        Address = x.User.Address,
+                        Identification = x.User.Identification,
+                        IsDeleted = x.User.IsDeleted,
+                        RoleBit = x.User.RoleBit.Value,
+                        StatusBit = x.User.StatusBit,
+                        HeightCm = x.User.HeightCm,
+                        WeightKg = x.User.WeightKg,
+                        MedicalHistory = x.User.MedicalHistory,
+                        BloodTypeId = x.User.BloodTypeId,
+                        BloodComponentId = x.User.BloodComponentId
+                    } : null
+                })
                 .ToListAsync();
 
-            var donationRequestDtos = donationRequests.Select(dr => new DonationRequestDto
-            {
-                DonateRequestId = dr.DonateRequestId,
-                UserId = dr.UserId,
-                BloodTypeId = dr.BloodTypeId,
-                BloodComponentId = dr.BloodComponentId,
-                PreferredDate = dr.PreferredDate,
-                StatusName = MapStatusToString(dr.Status),
-                Status = dr.Status,
-                Location = dr.Location,
-                CreatedAt = dr.CreatedAt,
-                Quantity = dr.Quantity,
-                HeightCm = dr.HeightCm,
-                WeightKg = dr.WeightKg,
-                LastDonationDate = dr.LastDonationDate,
-                HealthInfo = dr.HealthInfo,
-                DateOfBirth = dr.User?.DateOfBirth ?? DateOnly.FromDateTime(DateTime.UtcNow),
-                BloodType = dr.BloodType != null ? new BloodTypeDto
-                {
-                    BloodTypeId = dr.BloodType.BloodTypeId,
-                    Name = dr.BloodType.Name,
-                    RhFactor = dr.BloodType.RhFactor
-                } : null,
-                BloodComponent = dr.BloodComponent != null ? new BloodComponentDto
-                {
-                    BloodComponentId = dr.BloodComponent.BloodComponentId,
-                    Name = dr.BloodComponent.Name
-                } : null,
-                User = dr.User != null ? new UserDto
-                {
-                    UserId = dr.User.UserId,
-                    UserName = dr.User.UserName ?? "Unknown",
-                    Name = dr.User.Name ?? "Unknown",
-                    Email = dr.User.Email ?? "No Email Provided",
-                    Phone = dr.User.Phone ?? "No Phone Provided",
-                    DateOfBirth = dr.User.DateOfBirth ?? DateOnly.FromDateTime(DateTime.UtcNow),
-                    Address = dr.User.Address ?? "No Address Provided",
-                    Identification = dr.User.Identification ?? "No Identification Provided",
-                    IsDeleted = dr.User.IsDeleted,
-                    RoleBit = dr.User.RoleBit ?? 0,
-                    StatusBit = dr.User.StatusBit ?? 0,
-                    HeightCm = dr.User.HeightCm ?? 0,
-                    WeightKg = dr.User.WeightKg ?? 0,
-                    MedicalHistory = dr.User.MedicalHistory ?? "No Medical History Provided",
-                    BloodTypeId = dr.User.BloodTypeId ?? dr.BloodTypeId,
-                    BloodComponentId = dr.User.BloodComponentId ?? dr.BloodComponentId
-                } : null
-            }).ToList();
 
             return Ok(new
             {
-                Requests = donationRequestDtos,
-                TotalCount = totalCount,
-                TotalPages = totalPages,
-                CurrentPage = page,
-                PageSize = pageSize
+                Message = "Retrieved donation requests successfully.",
+                Data = new
+                {
+                    Requests = donationRequests,
+                    TotalCount = totalCount,
+                    TotalPages = totalPages,
+                    CurrentPage = page,
+                    PageSize = pageSize
+                }
             });
         }
 

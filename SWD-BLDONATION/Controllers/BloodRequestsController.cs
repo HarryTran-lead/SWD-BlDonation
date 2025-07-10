@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using SWD_BLDONATION.Provider;
 
 namespace SWD_BLDONATION.Controllers
 {
@@ -350,7 +351,7 @@ namespace SWD_BLDONATION.Controllers
                         Message = $"Your blood request (ID: {bloodRequest.BloodRequestId}) has been successfully created and is pending approval.",
                         Type = "BloodRequest",
                         Status = "Unread",
-                        SentAt = DateTime.UtcNow
+                        SentAt = VietnamDateTimeProvider.Now
                     };
 
                     _context.Notifications.Add(notification);
@@ -726,6 +727,145 @@ namespace SWD_BLDONATION.Controllers
             });
         }
 
+
+        [HttpGet("search/location")]
+        public async Task<ActionResult<object>> SearchByLocation(
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 10,
+    [FromQuery] string? keyword = null,
+    [FromQuery] int? bloodTypeId = null,
+    [FromQuery] int? bloodComponentId = null,
+    [FromQuery] bool? isEmergency = null,
+    [FromQuery] byte? status = null,
+    [FromQuery] string? location = null)
+        {
+            if (page < 1 || pageSize < 1)
+            {
+                return BadRequest(new { Message = "Invalid page or pageSize." });
+            }
+
+            var query = _context.BloodRequests
+                .Join(_context.BloodTypes,
+                    br => br.BloodTypeId,
+                    bt => bt.BloodTypeId,
+                    (br, bt) => new
+                    {
+                        BloodRequest = br,
+                        BloodTypeName = bt.Name + bt.RhFactor
+                    })
+                .Join(_context.BloodComponents,
+                    x => x.BloodRequest.BloodComponentId,
+                    bc => bc.BloodComponentId,
+                    (x, bc) => new
+                    {
+                        x.BloodRequest,
+                        x.BloodTypeName,
+                        BloodComponentName = bc.Name
+                    });
+
+            // Keyword search
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                string lowerKeyword = keyword.Trim().ToLower();
+                query = query.Where(x =>
+                    (x.BloodRequest.Name != null && x.BloodRequest.Name.ToLower().Contains(lowerKeyword)) ||
+                    (x.BloodRequest.Phone != null && x.BloodRequest.Phone.ToLower().Contains(lowerKeyword)) ||
+                    (x.BloodRequest.Location != null && x.BloodRequest.Location.ToLower().Contains(lowerKeyword)));
+            }
+
+            // Optional filters
+            if (bloodTypeId.HasValue)
+                query = query.Where(x => x.BloodRequest.BloodTypeId == bloodTypeId.Value);
+
+            if (bloodComponentId.HasValue)
+                query = query.Where(x => x.BloodRequest.BloodComponentId == bloodComponentId.Value);
+
+            if (isEmergency.HasValue)
+                query = query.Where(x => x.BloodRequest.IsEmergency == isEmergency.Value);
+
+            if (status.HasValue)
+                query = query.Where(x => x.BloodRequest.Status == status.Value);
+
+            var allData = await query.ToListAsync();
+
+            // Location matching logic (client-side)
+            string[] parts = location?.Trim().ToLower().Split('_', StringSplitOptions.RemoveEmptyEntries) ?? Array.Empty<string>();
+            string province = parts.ElementAtOrDefault(0);
+            string district = parts.ElementAtOrDefault(1);
+            string ward = parts.ElementAtOrDefault(2);
+
+            var filtered = allData.Select(x =>
+            {
+                string loc = x.BloodRequest.Location?.ToLower() ?? "";
+                int priority = 0;
+                if (!string.IsNullOrEmpty(province) && loc.Contains(province)) priority++;
+                if (!string.IsNullOrEmpty(district) && loc.Contains(district)) priority++;
+                if (!string.IsNullOrEmpty(ward) && loc.Contains(ward)) priority++;
+
+                return new
+                {
+                    x.BloodRequest,
+                    x.BloodTypeName,
+                    x.BloodComponentName,
+                    LocationPriority = priority
+                };
+            })
+            .Where(x => x.LocationPriority > 0)
+            .OrderByDescending(x => x.LocationPriority)
+            .ThenByDescending(x => x.BloodRequest.CreatedAt);
+
+            int totalCount = filtered.Count();
+            int totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+            var paged = filtered
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(x => new BloodRequestDto
+                {
+                    BloodRequestId = x.BloodRequest.BloodRequestId,
+                    UserId = x.BloodRequest.UserId,
+                    Name = x.BloodRequest.Name,
+                    DateOfBirth = x.BloodRequest.DateOfBirth,
+                    Phone = x.BloodRequest.Phone,
+                    BloodTypeId = x.BloodRequest.BloodTypeId ?? 0,
+                    BloodTypeName = x.BloodTypeName,
+                    BloodComponentId = x.BloodRequest.BloodComponentId ?? 0,
+                    BloodComponentName = x.BloodComponentName,
+                    IsEmergency = x.BloodRequest.IsEmergency ?? false,
+                    Status = new StatusDto
+                    {
+                        Id = x.BloodRequest.Status ?? (byte)BloodRequestStatus.Pending,
+                        Name = x.BloodRequest.Status.HasValue ?
+                            ((BloodRequestStatus)x.BloodRequest.Status.Value).ToString() :
+                            BloodRequestStatus.Pending.ToString()
+                    },
+                    CreatedAt = x.BloodRequest.CreatedAt ?? DateTime.MinValue,
+                    Location = x.BloodRequest.Location,
+                    Quantity = x.BloodRequest.Quantity ?? 0,
+                    Fulfilled = x.BloodRequest.Fulfilled ?? false,
+                    FulfilledSource = x.BloodRequest.FulfilledSource,
+                    HeightCm = x.BloodRequest.HeightCm ?? 0,
+                    WeightKg = x.BloodRequest.WeightKg ?? 0,
+                    HealthInfo = x.BloodRequest.HealthInfo
+                })
+                .ToList();
+
+            return Ok(new
+            {
+                Message = "Retrieved blood requests by location successfully.",
+                Data = new
+                {
+                    Requests = paged,
+                    TotalCount = totalCount,
+                    TotalPages = totalPages,
+                    CurrentPage = page,
+                    PageSize = pageSize
+                }
+            });
+        }
+
+
+
         [HttpPatch("status/staff")]
         public async Task<IActionResult> UpdateBloodRequestFromStaffStatus([FromBody] UpdateBloodRequestStatusDto dto)
         {
@@ -771,7 +911,7 @@ namespace SWD_BLDONATION.Controllers
                             Message = "Your request has been approved.",
                             Type = "BloodRequest",
                             Status = "Unread",
-                            SentAt = DateTime.UtcNow
+                            SentAt = VietnamDateTimeProvider.Now
                         };
                         _context.Notifications.Add(approvalNotification);
                         _logger.LogInformation("Approval notification created for userId={UserId} for blood request id={BloodRequestId}", bloodRequest.UserId, bloodRequest.BloodRequestId);
@@ -794,31 +934,57 @@ namespace SWD_BLDONATION.Controllers
 
         private async Task ProcessBloodRequestFulfillment(BloodRequest bloodRequest)
         {
-            _logger.LogInformation("Processing blood request fulfillment: id={Id}", bloodRequest.BloodRequestId);
+            _logger.LogInformation("🔍 Processing blood request fulfillment: id={Id}", bloodRequest.BloodRequestId);
 
             if (bloodRequest.Fulfilled == true)
+                return;
+
+            string requestLocation = bloodRequest.Location?.ToLower()?.Trim() ?? "";
+
+            var candidateInventories = await _context.BloodInventories
+                .Where(inv =>
+                    inv.BloodTypeId == bloodRequest.BloodTypeId &&
+                    inv.BloodComponentId == bloodRequest.BloodComponentId &&
+                    inv.Quantity >= bloodRequest.Quantity)
+                .ToListAsync();
+
+            if (candidateInventories.Count == 0)
             {
+                await TryMatchDonationRequests(bloodRequest);
                 return;
             }
 
-            var matchedInventory = await _context.BloodInventories
-                .FirstOrDefaultAsync(inv =>
-                    inv.BloodTypeId == bloodRequest.BloodTypeId &&
-                    inv.BloodComponentId == bloodRequest.BloodComponentId &&
-                    inv.Quantity >= bloodRequest.Quantity);
+            var bestInventory = candidateInventories
+                .Select(inv =>
+                {
+                    int locationScore = 0;
+                    string invLoc = inv.InventoryLocation?.ToLower()?.Trim() ?? "";
+                    if (!string.IsNullOrEmpty(requestLocation))
+                    {
+                        var parts = requestLocation.Split('_');
+                        foreach (var part in parts)
+                        {
+                            if (!string.IsNullOrEmpty(part) && invLoc.Contains(part.Trim()))
+                                locationScore++;
+                        }
+                    }
+                    return new { Inventory = inv, Score = locationScore };
+                })
+                .OrderByDescending(x => x.Score)
+                .ThenBy(x => x.Inventory.LastUpdated)
+                .FirstOrDefault()?.Inventory;
 
-            if (matchedInventory != null)
+            if (bestInventory != null)
             {
-                matchedInventory.Quantity -= bloodRequest.Quantity;
-                matchedInventory.LastUpdated = DateTime.UtcNow;
+                bestInventory.Quantity -= bloodRequest.Quantity;
+                bestInventory.LastUpdated = DateTime.UtcNow;
                 bloodRequest.Fulfilled = true;
-                bloodRequest.FulfilledSource = "Inventory";
+                bloodRequest.FulfilledSource = $"Inventory";
 
-                // Log inventory usage
                 var bloodRequestInventory = new BloodRequestInventory
                 {
                     BloodRequestId = bloodRequest.BloodRequestId,
-                    InventoryId = matchedInventory.InventoryId,
+                    InventoryId = bestInventory.InventoryId,
                     QuantityUnit = bloodRequest.Quantity,
                     QuantityAllocated = bloodRequest.Quantity,
                     AllocatedAt = DateTime.UtcNow,
@@ -826,7 +992,7 @@ namespace SWD_BLDONATION.Controllers
                 };
                 _context.BloodRequestInventories.Add(bloodRequestInventory);
 
-                _context.Entry(matchedInventory).State = EntityState.Modified;
+                _context.Entry(bestInventory).State = EntityState.Modified;
                 _context.Entry(bloodRequest).State = EntityState.Modified;
 
                 if (bloodRequest.UserId.HasValue)
@@ -834,44 +1000,51 @@ namespace SWD_BLDONATION.Controllers
                     var fulfillmentNotification = new Notification
                     {
                         UserId = bloodRequest.UserId.Value,
-                        Message = "Your request has been fulfilled. Please wait for our staff to call you to confirm the appointment.",
+                        Message = "🩸 Your blood request has been fulfilled from nearby inventory. Our staff will contact you shortly.",
                         Type = "BloodRequest",
                         Status = "Unread",
-                        SentAt = DateTime.UtcNow
+                        SentAt = VietnamDateTimeProvider.Now
                     };
                     _context.Notifications.Add(fulfillmentNotification);
                 }
+
+                _logger.LogInformation("✅ Fulfilled blood request from inventory id={InventoryId}", bestInventory.InventoryId);
             }
             else
             {
-                var potentialDonations = await _context.DonationRequests
-                    .Where(dr =>
-                        dr.BloodTypeId == bloodRequest.BloodTypeId &&
-                        dr.BloodComponentId == bloodRequest.BloodComponentId &&
-                        dr.Status == 1)
-                    .ToListAsync();
+                await TryMatchDonationRequests(bloodRequest);
+            }
+        }
 
-                if (potentialDonations.Any())
+        private async Task TryMatchDonationRequests(BloodRequest bloodRequest)
+        {
+            var potentialDonations = await _context.DonationRequests
+                .Where(dr =>
+                    dr.BloodTypeId == bloodRequest.BloodTypeId &&
+                    dr.BloodComponentId == bloodRequest.BloodComponentId &&
+                    dr.Status == 1)
+                .ToListAsync();
+
+            if (potentialDonations.Any())
+            {
+                foreach (var donation in potentialDonations)
                 {
-                    foreach (var donation in potentialDonations)
+                    var match = new RequestMatch
                     {
-                        var match = new RequestMatch
-                        {
-                            BloodRequestId = bloodRequest.BloodRequestId,
-                            DonationRequestId = donation.DonateRequestId,
-                            MatchStatus = "Pending",
-                            ScheduledDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
-                            Notes = "Auto-matched for blood need",
-                            Type = "Auto"
-                        };
-                        _context.RequestMatches.Add(match);
-                    }
-                    _logger.LogInformation("Created {Count} donation request matches for blood request: id={Id}", potentialDonations.Count, bloodRequest.BloodRequestId);
+                        BloodRequestId = bloodRequest.BloodRequestId,
+                        DonationRequestId = donation.DonateRequestId,
+                        MatchStatus = "Pending",
+                        ScheduledDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+                        Notes = "Auto-matched for blood need",
+                        Type = "Auto"
+                    };
+                    _context.RequestMatches.Add(match);
                 }
-                else
-                {
-                    _logger.LogWarning("No matching donation requests found for blood request: id={Id}", bloodRequest.BloodRequestId);
-                }
+                _logger.LogInformation("🧪 Created {Count} donation request matches for blood request id={Id}", potentialDonations.Count, bloodRequest.BloodRequestId);
+            }
+            else
+            {
+                _logger.LogWarning("⚠️ No matching donation requests found for blood request id={Id}", bloodRequest.BloodRequestId);
             }
         }
     }

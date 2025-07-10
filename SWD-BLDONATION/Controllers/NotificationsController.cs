@@ -195,6 +195,6 @@ namespace SWD_BLDONATION.Controllers
 
             _logger.LogInformation("Notification created successfully: id={Id}, userId={UserId}", notification.NotificationId, notification.UserId);
             return CreatedAtAction(nameof(GetNotificationsByUser), new { userId = notification.UserId }, resultDto);
-        } 
+        }
     }
 }

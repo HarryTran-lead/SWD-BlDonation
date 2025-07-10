@@ -8,6 +8,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using SWD_BLDONATION.Provider;
 
 namespace SWD_BLDONATION.Services
 {
@@ -64,11 +65,29 @@ namespace SWD_BLDONATION.Services
 
                 try
                 {
-                    var matchedInventory = await context.BloodInventories
-                        .FirstOrDefaultAsync(inv =>
+                    var allInventories = await context.BloodInventories
+                        .Where(inv =>
                             inv.BloodTypeId == bloodRequest.BloodTypeId &&
                             inv.BloodComponentId == bloodRequest.BloodComponentId &&
-                            inv.Quantity >= bloodRequest.Quantity);
+                            inv.Quantity >= bloodRequest.Quantity)
+                        .ToListAsync();
+
+                    BloodInventory? matchedInventory = null;
+
+                    if (!string.IsNullOrWhiteSpace(bloodRequest.Location))
+                    {
+                        var requestLocationParts = bloodRequest.Location.ToLower().Split('_').Select(p => p.Trim()).ToList();
+
+                        matchedInventory = allInventories.FirstOrDefault(inv =>
+                            requestLocationParts.Any(part =>
+                                inv.InventoryLocation != null &&
+                                inv.InventoryLocation.ToLower().Contains(part)));
+                    }
+
+                    if (matchedInventory == null)
+                    {
+                        matchedInventory = allInventories.FirstOrDefault();
+                    }
 
                     if (matchedInventory != null)
                     {
@@ -88,7 +107,6 @@ namespace SWD_BLDONATION.Services
                         };
                         context.BloodRequestInventories.Add(bloodRequestInventory);
 
-
                         if (bloodRequest.UserId.HasValue)
                         {
                             var notification = new Notification
@@ -97,10 +115,9 @@ namespace SWD_BLDONATION.Services
                                 Message = "Your request has been fulfilled. Please wait for our staff to call you to confirm the appointment.",
                                 Type = "BloodRequest",
                                 Status = "Unread",
-                                SentAt = DateTime.UtcNow
+                                SentAt = VietnamDateTimeProvider.Now
                             };
                             context.Notifications.Add(notification);
-                            _logger.LogInformation("Fulfillment notification created for userId={UserId} for blood request id={BloodRequestId}", bloodRequest.UserId, bloodRequest.BloodRequestId);
                         }
 
                         context.Entry(matchedInventory).State = EntityState.Modified;
@@ -111,7 +128,6 @@ namespace SWD_BLDONATION.Services
                     }
                     else
                     {
-
                         var potentialDonations = await context.DonationRequests
                             .Where(dr =>
                                 dr.BloodTypeId == bloodRequest.BloodTypeId &&
@@ -262,7 +278,7 @@ namespace SWD_BLDONATION.Services
                                     Message = "Your request has been fulfilled. Please wait for our staff to call you to confirm the appointment.",
                                     Type = "BloodRequest",
                                     Status = "Unread",
-                                    SentAt = DateTime.UtcNow
+                                    SentAt = VietnamDateTimeProvider.Now
                                 };
                                 context.Notifications.Add(notification);
                                 _logger.LogInformation("Fulfillment notification created for userId={UserId} for blood request id={BloodRequestId}", bloodRequest.UserId, bloodRequest.BloodRequestId);
@@ -271,7 +287,7 @@ namespace SWD_BLDONATION.Services
                             context.Entry(bloodRequest).State = EntityState.Modified;
 
                             remainingQuantity -= bloodRequest.Quantity.Value;
-                            inventory.Quantity -= bloodRequest.Quantity.Value; // Update inventory
+                            inventory.Quantity -= bloodRequest.Quantity.Value;
                             context.Entry(inventory).State = EntityState.Modified;
 
                             _logger.LogInformation("Blood request fulfilled from donation: bloodRequestId={BloodRequestId}, donationRequestId={DonationRequestId}, quantity={Quantity}",
