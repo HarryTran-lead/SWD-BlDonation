@@ -408,11 +408,55 @@ namespace SWD_BLDONATION.Controllers
 
             donationRequest.Status = (byte)dto.Status;
             _context.Entry(donationRequest).State = EntityState.Modified;
+
+            try
+            {
+                if (donationRequest.UserId.HasValue)
+                {
+                    string notificationMessage = null;
+
+                    switch ((BloodRequestStatus)dto.Status)
+                    {
+                        case BloodRequestStatus.Successful:
+                            notificationMessage = "Your donation request has been approved.";
+                            break;
+                        case BloodRequestStatus.Cancelled:
+                            notificationMessage = "Your donation request has been cancelled.";
+                            break;
+                        case BloodRequestStatus.Pending:
+                            notificationMessage = "Your donation request is pending review.";
+                            break;
+                    }
+
+                    if (!string.IsNullOrEmpty(notificationMessage))
+                    {
+                        var notification = new Notification
+                        {
+                            UserId = donationRequest.UserId.Value,
+                            Message = notificationMessage,
+                            Type = "DonationRequest",
+                            Status = "Unread",
+                            SentAt = VietnamDateTimeProvider.Now
+                        };
+
+                        _context.Notifications.Add(notification);
+                        _logger.LogInformation("Notification created for userId={UserId} with message='{Message}'",
+                            donationRequest.UserId.Value, notificationMessage);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error while creating notification for donation request id={Id}", dto.Id);
+                return StatusCode(500, new { Message = "An error occurred while processing the donation request." });
+            }
+
             await _context.SaveChangesAsync();
 
             _logger.LogInformation("Donation request status updated successfully: id={Id}, status={Status}", dto.Id, dto.Status);
             return Ok(new { Message = "Donation request status updated successfully." });
         }
+
 
         // GET: api/DonationRequests/search
         [HttpGet("search")]

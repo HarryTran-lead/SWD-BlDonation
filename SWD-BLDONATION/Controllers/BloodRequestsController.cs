@@ -899,11 +899,11 @@ namespace SWD_BLDONATION.Controllers
             bloodRequest.Status = dto.Status;
             _context.Entry(bloodRequest).State = EntityState.Modified;
 
-            if ((BloodRequestStatus)dto.Status == BloodRequestStatus.Successful)
+            try
             {
-                try
+                if (bloodRequest.UserId.HasValue)
                 {
-                    if (bloodRequest.UserId.HasValue)
+                    if ((BloodRequestStatus)dto.Status == BloodRequestStatus.Successful)
                     {
                         var approvalNotification = new Notification
                         {
@@ -915,15 +915,28 @@ namespace SWD_BLDONATION.Controllers
                         };
                         _context.Notifications.Add(approvalNotification);
                         _logger.LogInformation("Approval notification created for userId={UserId} for blood request id={BloodRequestId}", bloodRequest.UserId, bloodRequest.BloodRequestId);
-                    }
 
-                    await ProcessBloodRequestFulfillment(bloodRequest);
+                        await ProcessBloodRequestFulfillment(bloodRequest);
+                    }
+                    else if ((BloodRequestStatus)dto.Status == BloodRequestStatus.Cancelled)
+                    {
+                        var cancellationNotification = new Notification
+                        {
+                            UserId = bloodRequest.UserId.Value,
+                            Message = "Your request has been cancelled.",
+                            Type = "BloodRequest",
+                            Status = "Unread",
+                            SentAt = VietnamDateTimeProvider.Now
+                        };
+                        _context.Notifications.Add(cancellationNotification);
+                        _logger.LogInformation("Cancellation notification created for userId={UserId} for blood request id={BloodRequestId}", bloodRequest.UserId, bloodRequest.BloodRequestId);
+                    }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error processing blood request fulfillment: id={Id}", dto.Id);
-                    return StatusCode(500, new { Message = "An error occurred while processing the blood request." });
-                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing blood request status change: id={Id}", dto.Id);
+                return StatusCode(500, new { Message = "An error occurred while processing the blood request." });
             }
 
             await _context.SaveChangesAsync();
@@ -931,6 +944,7 @@ namespace SWD_BLDONATION.Controllers
             _logger.LogInformation("Blood request status updated successfully: id={Id}, status={Status}", dto.Id, dto.Status);
             return Ok(new { Message = "Blood request status updated successfully." });
         }
+
 
         private async Task ProcessBloodRequestFulfillment(BloodRequest bloodRequest)
         {
