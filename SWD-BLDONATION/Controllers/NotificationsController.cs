@@ -129,6 +129,63 @@ namespace SWD_BLDONATION.Controllers
             return Ok(new { Message = "Notification status updated successfully." });
         }
 
+        [HttpPatch("bulk-status")]
+        public async Task<IActionResult> UpdateBulkNotificationStatus([FromBody] UpdateBulkNotificationStatusDto dto)
+        {
+            _logger.LogInformation("UpdateBulkNotificationStatus called with notificationIds={NotificationIds}, userId={UserId}",
+                dto.NotificationIds != null ? string.Join(",", dto.NotificationIds) : "null", dto.UserId);
+
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid data provided for UpdateBulkNotificationStatus");
+                return BadRequest(new
+                {
+                    Message = "Invalid data submitted.",
+                    Errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)
+                });
+            }
+
+            if (dto.NotificationIds == null && !dto.UserId.HasValue)
+            {
+                _logger.LogWarning("Either notificationIds or userId must be provided");
+                return BadRequest(new { Message = "Either notificationIds or userId must be provided." });
+            }
+
+            var query = _context.Notifications.AsQueryable();
+
+            if (dto.UserId.HasValue)
+            {
+                if (!await _context.Users.AnyAsync(u => u.UserId == dto.UserId))
+                {
+                    _logger.LogWarning("User not found: userId={UserId}", dto.UserId);
+                    return NotFound(new { Message = "User not found" });
+                }
+                query = query.Where(n => n.UserId == dto.UserId && n.Status == "Unread");
+            }
+            else if (dto.NotificationIds != null && dto.NotificationIds.Any())
+            {
+                query = query.Where(n => dto.NotificationIds.Contains(n.NotificationId) && n.Status == "Unread");
+            }
+
+            var notifications = await query.ToListAsync();
+            if (!notifications.Any())
+            {
+                _logger.LogWarning("No unread notifications found for the provided criteria");
+                return NotFound(new { Message = "No unread notifications found" });
+            }
+
+            foreach (var notification in notifications)
+            {
+                notification.Status = "Read";
+                _context.Entry(notification).State = EntityState.Modified;
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Updated {Count} notifications to Read status", notifications.Count);
+            return Ok(new { Message = $"{notifications.Count} notifications updated to Read status." });
+        }
+
         // DELETE: api/Notifications/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteNotification(int id)

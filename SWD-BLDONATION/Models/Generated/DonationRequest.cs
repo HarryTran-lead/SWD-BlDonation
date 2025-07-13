@@ -33,6 +33,8 @@ public partial class DonationRequest
 
     public byte? Status { get; set; }
 
+    public string? Phone { get; set; }
+
     public virtual BloodComponent? BloodComponent { get; set; }
 
     public virtual BloodType? BloodType { get; set; }

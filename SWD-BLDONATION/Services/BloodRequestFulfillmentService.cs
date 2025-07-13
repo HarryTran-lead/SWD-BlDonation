@@ -56,7 +56,7 @@ namespace SWD_BLDONATION.Services
             _logger.LogInformation("Processing pending BloodRequests.");
 
             var pendingRequests = await context.BloodRequests
-                .Where(br => br.Status == (byte)BloodRequestStatus.Pending && br.Fulfilled == false)
+                .Where(br => br.Status == (byte)BloodRequestStatus.Successful && br.Fulfilled == false)
                 .ToListAsync();
 
             foreach (var bloodRequest in pendingRequests)

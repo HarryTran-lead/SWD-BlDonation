@@ -42,5 +42,9 @@ namespace SWD_BLDONATION.DTOs.DonationRequestDTOs
 
         public DateOnly? DateOfBirth { get; set; }
 
+        [StringLength(15, ErrorMessage = "Phone number cannot exceed 15 characters.")]
+        [DefaultValue("")]
+        public string? Phone { get; set; }
+
     }
 }

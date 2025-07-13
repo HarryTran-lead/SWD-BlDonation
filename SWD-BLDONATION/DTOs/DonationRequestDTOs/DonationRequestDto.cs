@@ -22,6 +22,8 @@ namespace SWD_BLDONATION.DTOs.DonationRequestDTOs
         public string? HealthInfo { get; set; }
         public DateOnly? DateOfBirth { get; set; }
 
+        public string? Phone { get; set; }
+
         // Navigation properties (DTO objects)
         public BloodTypeDto? BloodType { get; set; }
         public BloodComponentDto? BloodComponent { get; set; }
