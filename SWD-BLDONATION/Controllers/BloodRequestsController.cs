@@ -1014,7 +1014,7 @@ namespace SWD_BLDONATION.Controllers
                     var fulfillmentNotification = new Notification
                     {
                         UserId = bloodRequest.UserId.Value,
-                        Message = "🩸 Your blood request has been fulfilled from nearby inventory. Our staff will contact you shortly.",
+                        Message = " Your blood request has been fulfilled from nearby inventory. Our staff will contact you shortly.",
                         Type = "BloodRequest",
                         Status = "Unread",
                         SentAt = VietnamDateTimeProvider.Now
@@ -1022,7 +1022,7 @@ namespace SWD_BLDONATION.Controllers
                     _context.Notifications.Add(fulfillmentNotification);
                 }
 
-                _logger.LogInformation("✅ Fulfilled blood request from inventory id={InventoryId}", bestInventory.InventoryId);
+                _logger.LogInformation(" Fulfilled blood request from inventory id={InventoryId}", bestInventory.InventoryId);
             }
             else
             {
@@ -1050,7 +1050,7 @@ namespace SWD_BLDONATION.Controllers
                         MatchStatus = "Pending",
                         ScheduledDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
                         Notes = "Auto-matched for blood need",
-                        Type = "Auto"
+                        Type = "donation_to_request" 
                     };
                     _context.RequestMatches.Add(match);
                 }

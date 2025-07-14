@@ -35,6 +35,8 @@ public partial class DonationRequest
 
     public string? Phone { get; set; }
 
+    public string? Name { get; set; }
+
     public virtual BloodComponent? BloodComponent { get; set; }
 
     public virtual BloodType? BloodType { get; set; }

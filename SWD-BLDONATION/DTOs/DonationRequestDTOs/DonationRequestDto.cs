@@ -21,10 +21,10 @@ namespace SWD_BLDONATION.DTOs.DonationRequestDTOs
         public DateOnly? LastDonationDate { get; set; }
         public string? HealthInfo { get; set; }
         public DateOnly? DateOfBirth { get; set; }
-
         public string? Phone { get; set; }
 
-        // Navigation properties (DTO objects)
+        public string? Name { get; set; }
+
         public BloodTypeDto? BloodType { get; set; }
         public BloodComponentDto? BloodComponent { get; set; }
         public UserDto? User { get; set; }

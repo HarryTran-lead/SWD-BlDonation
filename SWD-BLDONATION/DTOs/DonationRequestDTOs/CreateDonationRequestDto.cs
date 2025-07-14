@@ -15,5 +15,7 @@
         public DateOnly? LastDonationDate { get; set; }
 
         public DateOnly? DateOfBirth { get; set; }
+        public string? Name { get; set; }
+
     }
 }

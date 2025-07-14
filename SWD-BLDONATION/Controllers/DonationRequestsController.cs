@@ -71,6 +71,7 @@ namespace SWD_BLDONATION.Controllers
             {
                 DonateRequestId = dr.DonateRequestId,
                 UserId = dr.UserId,
+                Name = dr.Name,
                 BloodTypeId = dr.BloodTypeId,
                 BloodComponentId = dr.BloodComponentId,
                 PreferredDate = dr.PreferredDate,
@@ -558,6 +559,7 @@ namespace SWD_BLDONATION.Controllers
             {
                 DonateRequestId = dr.DonateRequestId,
                 UserId = dr.UserId,
+                Name = dr.Name,
                 BloodTypeId = dr.BloodTypeId,
                 BloodComponentId = dr.BloodComponentId,
                 PreferredDate = dr.PreferredDate,
