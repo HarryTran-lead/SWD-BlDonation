@@ -36,6 +36,8 @@ namespace SWD_BLDONATION.Controllers
                 (byte)DonationRequestStatus.Pending => "Pending",
                 (byte)DonationRequestStatus.Successful => "Successful",
                 (byte)DonationRequestStatus.Cancelled => "Cancelled",
+                (byte)DonationRequestStatus.Done => "Done",
+                (byte)DonationRequestStatus.Stocked => "Stocked",
                 _ => null
             };
         }
@@ -465,6 +467,9 @@ namespace SWD_BLDONATION.Controllers
                             break;
                         case DonationRequestStatus.Pending:
                             notificationMessage = "Your donation request is pending review.";
+                            break;
+                        case DonationRequestStatus.Done:
+                            notificationMessage = "Thank you for your donation! Your blood has been successfully donated at the hospital.";
                             break;
                     }
 

@@ -1050,7 +1050,7 @@ namespace SWD_BLDONATION.Controllers
                         MatchStatus = "Pending",
                         ScheduledDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
                         Notes = "Auto-matched for blood need",
-                        Type = "donation_to_request" 
+                        Type = "donation_to_request"
                     };
                     _context.RequestMatches.Add(match);
                 }
