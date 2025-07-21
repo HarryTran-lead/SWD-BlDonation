@@ -325,7 +325,7 @@ namespace SWD_BLDONATION.Controllers
                 BloodComponentId = dto.BloodComponentId,
                 IsEmergency = dto.IsEmergency,
                 Status = (byte)BloodRequestStatus.Pending,
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = VietnamDateTimeProvider.Now,
                 Location = dto.Location,
                 Quantity = dto.Quantity,
                 Fulfilled = false,

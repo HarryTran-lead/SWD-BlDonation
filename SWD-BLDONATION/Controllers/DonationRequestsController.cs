@@ -332,7 +332,7 @@ namespace SWD_BLDONATION.Controllers
             }
 
             var donationRequest = _mapper.Map<DonationRequest>(createDto);
-            donationRequest.CreatedAt = DateTime.UtcNow;
+            donationRequest.CreatedAt = VietnamDateTimeProvider.Now;
 
             _context.DonationRequests.Add(donationRequest);
 

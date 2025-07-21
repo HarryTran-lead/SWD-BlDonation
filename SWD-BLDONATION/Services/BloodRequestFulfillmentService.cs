@@ -141,7 +141,7 @@ namespace SWD_BLDONATION.Services
                                 .AnyAsync(rm =>
                                     rm.BloodRequestId == bloodRequest.BloodRequestId &&
                                     rm.DonationRequestId == donation.DonateRequestId &&
-                                    rm.MatchStatus == "Pending");
+                                    rm.MatchStatus == "pending");
 
                             if (!existingMatch)
                             {
@@ -149,7 +149,7 @@ namespace SWD_BLDONATION.Services
                                 {
                                     BloodRequestId = bloodRequest.BloodRequestId,
                                     DonationRequestId = donation.DonateRequestId,
-                                    MatchStatus = "Pending",
+                                    MatchStatus = "pending",
                                     ScheduledDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
                                     Notes = "Auto-matched by periodic job",
                                     Type = "donation_to_request"
@@ -183,8 +183,11 @@ namespace SWD_BLDONATION.Services
                 .Where(dr => dr.Status == 3)
                 .ToListAsync();
 
+            _logger.LogInformation("Processing completed DonationRequests..." + completedDonations.Count);
+
             foreach (var donation in completedDonations)
             {
+                _logger.LogInformation("Start completed DonationRequests...");
                 await using var transaction = await context.Database.BeginTransactionAsync();
 
                 try
@@ -200,7 +203,6 @@ namespace SWD_BLDONATION.Services
                         .FirstOrDefaultAsync(inv =>
                             inv.BloodTypeId == donation.BloodTypeId &&
                             inv.BloodComponentId == donation.BloodComponentId);
-
                     if (inventory == null)
                     {
                         inventory = new BloodInventory
@@ -208,16 +210,18 @@ namespace SWD_BLDONATION.Services
                             BloodTypeId = donation.BloodTypeId,
                             BloodComponentId = donation.BloodComponentId,
                             Quantity = remainingQuantity,
-                            Unit = "mL",
-                            LastUpdated = DateTime.UtcNow,
+                            Unit = "ml",
+                            LastUpdated = VietnamDateTimeProvider.Now,
                             InventoryLocation = "Default Location"
                         };
                         context.BloodInventories.Add(inventory);
+                        await context.SaveChangesAsync();
                         _logger.LogInformation("Created new inventory entry for blood type={BloodTypeId}, component={BloodComponentId}, quantity={Quantity}",
                             donation.BloodTypeId, donation.BloodComponentId, remainingQuantity);
                     }
                     else
                     {
+                        Console.WriteLine("Inventory: " + inventory.InventoryId);
                         inventory.Quantity += remainingQuantity;
                         inventory.LastUpdated = DateTime.UtcNow;
                         context.Entry(inventory).State = EntityState.Modified;
@@ -260,10 +264,10 @@ namespace SWD_BLDONATION.Services
                             {
                                 BloodRequestId = bloodRequest.BloodRequestId,
                                 DonationRequestId = donation.DonateRequestId,
-                                MatchStatus = "Completed",
+                                MatchStatus = "matched",
                                 ScheduledDate = DateOnly.FromDateTime(DateTime.UtcNow),
                                 Notes = "Fulfilled by completed donation",
-                                Type = "Auto"
+                                Type = "donation_to_request"
                             };
                             context.RequestMatches.Add(match);
 
