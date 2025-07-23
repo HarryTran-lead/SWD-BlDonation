@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using SWD_BLDONATION.Models.Enums;
 using System;
 using System.Collections.Generic;
@@ -14,6 +15,7 @@ namespace SWD_BLDONATION.Controllers
         /// Lấy danh sách UserRole dưới dạng Id và Name
         /// </summary>
         [HttpGet("userroles")]
+        [Authorize(Roles = "Admin,Staff")]
         public IActionResult GetUserRoles()
         {
             var roles = Enum.GetValues(typeof(UserRole))
@@ -31,6 +33,7 @@ namespace SWD_BLDONATION.Controllers
         /// Lấy danh sách UserStatus dưới dạng Id và Name
         /// </summary>
         [HttpGet("userstatuses")]
+        [Authorize(Roles = "Admin,Staff")]
         public IActionResult GetUserStatuses()
         {
             var statuses = Enum.GetValues(typeof(UserStatus))

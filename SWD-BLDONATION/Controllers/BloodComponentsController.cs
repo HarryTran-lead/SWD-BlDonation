@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SWD_BLDONATION.DTOs;
 using SWD_BLDONATION.DTOs.BloodComponentDTOs;
@@ -22,6 +23,7 @@ namespace SWD_BLDONATION.Controllers
 
         // GET: api/BloodComponents
         [HttpGet]
+        [Authorize(Roles = "Admin,Staff,User")]
         public async Task<ActionResult<IEnumerable<BloodComponentDto>>> GetBloodComponents()
         {
             var list = await _context.BloodComponents
@@ -37,6 +39,7 @@ namespace SWD_BLDONATION.Controllers
 
         // GET: api/BloodComponents/search
         [HttpGet("search")]
+        [Authorize(Roles = "Admin,Staff,User")]
         public async Task<ActionResult<object>> SearchBloodComponents(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10,
@@ -80,6 +83,7 @@ namespace SWD_BLDONATION.Controllers
 
         // GET: api/BloodComponents/5
         [HttpGet("{id}")]
+        [Authorize(Roles = "Admin,Staff,User")]
         public async Task<ActionResult<BloodComponentDto>> GetBloodComponent(int id)
         {
             var bloodComponent = await _context.BloodComponents
@@ -99,6 +103,7 @@ namespace SWD_BLDONATION.Controllers
 
         // PUT: api/BloodComponents/5
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> PutBloodComponent(int id, [FromForm] UpdateBloodComponentDto dto)
         {
             var bloodComponent = await _context.BloodComponents.FindAsync(id);
@@ -124,6 +129,7 @@ namespace SWD_BLDONATION.Controllers
 
         // POST: api/BloodComponents
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<BloodComponentDto>> PostBloodComponent([FromForm] CreateBloodComponentDto dto)
         {
             var bloodComponent = new BloodComponent
@@ -145,6 +151,7 @@ namespace SWD_BLDONATION.Controllers
 
         // DELETE: api/BloodComponents/5
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteBloodComponent(int id)
         {
             var bloodComponent = await _context.BloodComponents.FindAsync(id);

@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SWD_BLDONATION.DTOs.BloodInventoryDTOs;
@@ -27,6 +28,7 @@ namespace SWD_BLDONATION.Controllers
 
         // GET: api/BloodInventories
         [HttpGet]
+        [Authorize(Roles = "Admin,Staff,User")]
         public async Task<ActionResult<object>> GetBloodInventories([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             _logger.LogInformation("GetBloodInventories called with page={Page}, pageSize={PageSize}", page, pageSize);
@@ -85,6 +87,7 @@ namespace SWD_BLDONATION.Controllers
 
         // GET: api/BloodInventories/5
         [HttpGet("{id}")]
+        [Authorize(Roles = "Admin,Staff,User")]
         public async Task<ActionResult<object>> GetBloodInventory(int id)
         {
             _logger.LogInformation("GetBloodInventory called with id={Id}", id);
@@ -125,6 +128,7 @@ namespace SWD_BLDONATION.Controllers
 
         // GET: api/BloodInventories/search
         [HttpGet("search")]
+        [Authorize(Roles = "Admin,Staff,User")]
         public async Task<ActionResult<object>> SearchBloodInventories([FromQuery] BloodInventorySearchQueryDto query)
         {
             _logger.LogInformation("SearchBloodInventories called with query: {@Query}", query);
@@ -195,6 +199,7 @@ namespace SWD_BLDONATION.Controllers
 
         // POST: api/BloodInventories
         [HttpPost]
+        [Authorize(Roles = "Admin,Staff")]
         public async Task<ActionResult<object>> PostBloodInventory([FromForm] CreateBloodInventoryDto createDto)
         {
             _logger.LogInformation("PostBloodInventory called with data: {@CreateDto}", createDto);
@@ -272,6 +277,7 @@ namespace SWD_BLDONATION.Controllers
 
         // PUT: api/BloodInventories/5
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin,Staff")]
         public async Task<IActionResult> PutBloodInventory(int id, [FromForm] UpdateBloodInventoryDto updateDto)
         {
             _logger.LogInformation("PutBloodInventory called with id={Id}, data: {@UpdateDto}", id, updateDto);
@@ -386,6 +392,7 @@ namespace SWD_BLDONATION.Controllers
 
         // DELETE: api/BloodInventories/5
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteBloodInventory(int id)
         {
             _logger.LogInformation("DeleteBloodInventory called with id={Id}", id);

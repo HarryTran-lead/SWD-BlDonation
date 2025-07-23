@@ -1,4 +1,7 @@
-﻿using AutoMapper;
+﻿using System.Security.Claims;
+using AutoMapper;
+using Azure.Core;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -44,6 +47,7 @@ namespace SWD_BLDONATION.Controllers
 
         // GET: api/DonationRequests
         [HttpGet]
+        [Authorize(Roles = "Admin,Staff")]
         public async Task<ActionResult<object>> GetDonationRequests([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             _logger.LogInformation("GetDonationRequests called with page={Page}, pageSize={PageSize}", page, pageSize);
@@ -134,6 +138,7 @@ namespace SWD_BLDONATION.Controllers
 
         // GET: api/DonationRequests/5
         [HttpGet("{id}")]
+        [Authorize(Roles = "Admin,Staff,User")]
         public async Task<ActionResult<DonationRequestDto>> GetDonationRequest(int id)
         {
             _logger.LogInformation("GetDonationRequest called with id={Id}", id);
@@ -150,6 +155,18 @@ namespace SWD_BLDONATION.Controllers
                 return NotFound(new { Message = "Donation request not found." });
             }
 
+            var userRole = User.FindFirst("role")?.Value;
+            var userIdClaim = User.FindFirst("userId")?.Value;
+
+            if (userRole == "User")
+            {
+                if (userIdClaim == null || donationRequest.UserId.ToString() != userIdClaim)
+                {
+                    _logger.LogWarning("User not authorized to access this donation request.");
+                    return Forbid("You are not allowed to access this donation request.");
+                }
+            }
+
             var donationRequestDto = _mapper.Map<DonationRequestDto>(donationRequest);
             donationRequestDto.StatusName = MapStatusToString(donationRequest.Status);
             donationRequestDto.Status = donationRequest.Status;
@@ -162,6 +179,7 @@ namespace SWD_BLDONATION.Controllers
 
         // PUT: api/DonationRequests/5
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin,Staff")]
         public async Task<IActionResult> PutDonationRequest(int id, [FromForm] UpdateDonationRequestDto dto)
         {
             _logger.LogInformation("PutDonationRequest called with id={Id}, data={@Dto}", id, dto);
@@ -317,6 +335,7 @@ namespace SWD_BLDONATION.Controllers
 
         // POST: api/DonationRequests
         [HttpPost]
+        [Authorize(Roles = "Admin,Staff,User")]
         public async Task<ActionResult<DonationRequestDto>> PostDonationRequest([FromForm] CreateDonationRequestDto createDto)
         {
             _logger.LogInformation("PostDonationRequest called with data: {@CreateDto}", createDto);
@@ -378,6 +397,7 @@ namespace SWD_BLDONATION.Controllers
 
         // DELETE: api/DonationRequests/5
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin,Staff")]
         public async Task<IActionResult> DeleteDonationRequest(int id)
         {
             _logger.LogInformation("DeleteDonationRequest called with id={Id}", id);
@@ -421,6 +441,7 @@ namespace SWD_BLDONATION.Controllers
 
         // PATCH: api/DonationRequests/status
         [HttpPatch("status")]
+        [Authorize(Roles = "Admin,Staff")]
         public async Task<IActionResult> UpdateDonationRequestStatus([FromBody] UpdateDonationRequestStatusDto dto)
         {
             _logger.LogInformation("UpdateDonationRequestStatus called with id={Id}, status={Status}", dto.Id, dto.Status);
@@ -503,6 +524,7 @@ namespace SWD_BLDONATION.Controllers
 
         // GET: api/DonationRequests/search
         [HttpGet("search")]
+        [Authorize(Roles = "Admin,Staff")]
         public async Task<ActionResult<object>> SearchDonationRequests(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10,
@@ -629,6 +651,7 @@ namespace SWD_BLDONATION.Controllers
 
         // GET: api/DonationRequests/ByUser/search/{userId}
         [HttpGet("ByUser/search/{userId}")]
+        [Authorize(Roles = "Admin,Staff,User")]
         public async Task<ActionResult<object>> SearchDonationRequestsByUser(
             int userId,
             [FromQuery] int page = 1,
@@ -694,6 +717,15 @@ namespace SWD_BLDONATION.Controllers
             if (quantityMax.HasValue)
                 query = query.Where(dr => dr.Quantity <= quantityMax.Value);
 
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            if (role == nameof(UserRole.User) && int.TryParse(userIdClaim, out int userIdCh))
+            {
+                if (userIdCh != userId)
+                {
+                    return Forbid();
+                }
+            }
             var totalCount = await query.CountAsync();
             var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 

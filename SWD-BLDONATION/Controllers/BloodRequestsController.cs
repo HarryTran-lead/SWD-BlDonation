@@ -9,6 +9,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using SWD_BLDONATION.Provider;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace SWD_BLDONATION.Controllers
 {
@@ -27,6 +29,7 @@ namespace SWD_BLDONATION.Controllers
 
         // GET: api/BloodRequests/{id}
         [HttpGet("{id}")]
+        [Authorize(Roles = "Admin,Staff,User")]
         public async Task<ActionResult<object>> GetBloodRequestById(int id)
         {
             _logger.LogInformation("GetBloodRequestById called with id={Id}", id);
@@ -69,19 +72,19 @@ namespace SWD_BLDONATION.Controllers
                     BloodTypeName = x.BloodTypeName,
                     BloodComponentId = x.BloodRequest.BloodComponentId ?? 0,
                     BloodComponentName = x.BloodComponentName,
-                    IsEmergency = x.BloodRequest.IsEmergency.HasValue ? x.BloodRequest.IsEmergency.Value : false,
+                    IsEmergency = x.BloodRequest.IsEmergency ?? false,
                     Status = new StatusDto
                     {
                         Id = x.BloodRequest.Status ?? (byte)BloodRequestStatus.Pending,
                         Name = x.BloodRequest.Status.HasValue ? ((BloodRequestStatus)x.BloodRequest.Status.Value).ToString() : BloodRequestStatus.Pending.ToString()
                     },
-                    CreatedAt = x.BloodRequest.CreatedAt.HasValue ? x.BloodRequest.CreatedAt.Value : DateTime.MinValue,
+                    CreatedAt = x.BloodRequest.CreatedAt ?? DateTime.MinValue,
                     Location = x.BloodRequest.Location,
-                    Quantity = x.BloodRequest.Quantity.HasValue ? (int)x.BloodRequest.Quantity.Value : 0,
-                    Fulfilled = x.BloodRequest.Fulfilled.HasValue ? x.BloodRequest.Fulfilled.Value : false,
+                    Quantity = x.BloodRequest.Quantity ?? 0,
+                    Fulfilled = x.BloodRequest.Fulfilled ?? false,
                     FulfilledSource = x.BloodRequest.FulfilledSource,
-                    HeightCm = x.BloodRequest.HeightCm.HasValue ? (int)x.BloodRequest.HeightCm.Value : 0,
-                    WeightKg = x.BloodRequest.WeightKg.HasValue ? (int)x.BloodRequest.WeightKg.Value : 0,
+                    HeightCm = x.BloodRequest.HeightCm ?? 0,
+                    WeightKg = x.BloodRequest.WeightKg ?? 0,
                     HealthInfo = x.BloodRequest.HealthInfo
                 })
                 .FirstOrDefaultAsync();
@@ -90,6 +93,18 @@ namespace SWD_BLDONATION.Controllers
             {
                 _logger.LogWarning("Blood request not found: id={Id}", id);
                 return NotFound(new { Message = "Blood request not found." });
+            }
+
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (role == nameof(UserRole.User) && int.TryParse(userIdClaim, out int userId))
+            {
+                if (request.UserId != userId)
+                {
+                    _logger.LogWarning("User {UserId} tried to access unauthorized blood request {RequestId}", userId, id);
+                    return Forbid();
+                }
             }
 
             _logger.LogInformation("GetBloodRequestById returned blood request with id={Id}", id);
@@ -101,8 +116,10 @@ namespace SWD_BLDONATION.Controllers
             });
         }
 
+
         // GET: api/BloodRequests
         [HttpGet]
+        [Authorize(Roles = "Admin,Staff")]
         public async Task<ActionResult<object>> GetBloodRequests([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             _logger.LogInformation("GetBloodRequests called with page={Page}, pageSize={PageSize}", page, pageSize);
@@ -187,6 +204,7 @@ namespace SWD_BLDONATION.Controllers
 
         // GET: api/BloodRequests/search
         [HttpGet("search")]
+        [Authorize(Roles = "Admin,Staff,User")]
         public async Task<ActionResult<object>> SearchBloodRequests(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10,
@@ -253,6 +271,14 @@ namespace SWD_BLDONATION.Controllers
                 query = query.Where(x => x.BloodRequest.Status == status.Value);
             }
 
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (role == nameof(UserRole.User) && int.TryParse(userIdClaim, out int userId))
+            {
+                query = query.Where(x => x.BloodRequest.UserId == userId);
+            }
+
             var totalCount = await query.CountAsync();
             var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
@@ -308,6 +334,7 @@ namespace SWD_BLDONATION.Controllers
 
         // POST: api/BloodRequests
         [HttpPost]
+        [Authorize(Roles = "Admin,Staff,User")]
         public async Task<ActionResult<object>> PostBloodRequest([FromForm] CreateBloodRequestDto dto)
         {
             _logger.LogInformation("PostBloodRequest called with data: {@CreateDto}", dto);
@@ -374,6 +401,7 @@ namespace SWD_BLDONATION.Controllers
 
         // PUT: api/BloodRequests/{id}
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin,Staff")]
         public async Task<IActionResult> PutBloodRequest(int id, [FromForm] UpdateBloodRequestDto dto)
         {
             _logger.LogInformation("PutBloodRequest called with id={Id}, data={@Dto}", id, dto);
@@ -561,6 +589,7 @@ namespace SWD_BLDONATION.Controllers
         }
 
         [HttpPatch("status")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateBloodRequestStatus([FromBody] UpdateBloodRequestStatusDto dto)
         {
             if (!ModelState.IsValid)
@@ -588,6 +617,7 @@ namespace SWD_BLDONATION.Controllers
 
         // DELETE: api/BloodRequests/{id}
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin,Staff")]
         public async Task<IActionResult> DeleteBloodRequest(int id)
         {
             var bloodRequest = await _context.BloodRequests.FindAsync(id);
@@ -609,6 +639,7 @@ namespace SWD_BLDONATION.Controllers
 
         // GET: api/BloodRequests/ByUser/search/{userId}
         [HttpGet("ByUser/search/{userId}")]
+        [Authorize(Roles = "Admin,Staff")]
         public async Task<ActionResult<object>> SearchBloodRequestsByUser(
             int userId,
             [FromQuery] int page = 1,
@@ -729,6 +760,7 @@ namespace SWD_BLDONATION.Controllers
 
 
         [HttpGet("search/location")]
+        [Authorize(Roles = "Admin,Staff,User")]
         public async Task<ActionResult<object>> SearchByLocation(
     [FromQuery] int page = 1,
     [FromQuery] int pageSize = 10,
@@ -867,6 +899,7 @@ namespace SWD_BLDONATION.Controllers
 
 
         [HttpPatch("status/staff")]
+        [Authorize(Roles = "Admin,Staff")]
         public async Task<IActionResult> UpdateBloodRequestFromStaffStatus([FromBody] UpdateBloodRequestStatusDto dto)
         {
             _logger.LogInformation("UpdateBloodRequestStatus called with id={Id}, status={Status}", dto.Id, dto.Status);
@@ -908,7 +941,7 @@ namespace SWD_BLDONATION.Controllers
                         var approvalNotification = new Notification
                         {
                             UserId = bloodRequest.UserId.Value,
-                            Message = "Your request has been approved.",
+                            Message = "Your blood request has been approved and will be fulfilled from our inventory. Our medical staff will contact you shortly with further instructions.",
                             Type = "BloodRequest",
                             Status = "Unread",
                             SentAt = VietnamDateTimeProvider.Now
@@ -923,7 +956,7 @@ namespace SWD_BLDONATION.Controllers
                         var cancellationNotification = new Notification
                         {
                             UserId = bloodRequest.UserId.Value,
-                            Message = "Your request has been cancelled.",
+                            Message = "Your blood request has been cancelled. If you believe this is a mistake or your situation has changed, please contact our support team.",
                             Type = "BloodRequest",
                             Status = "Unread",
                             SentAt = VietnamDateTimeProvider.Now
@@ -1014,7 +1047,7 @@ namespace SWD_BLDONATION.Controllers
                     var fulfillmentNotification = new Notification
                     {
                         UserId = bloodRequest.UserId.Value,
-                        Message = " Your blood request has been fulfilled from nearby inventory. Our staff will contact you shortly.",
+                        Message = "Your blood request has been fulfilled from a nearby inventory. Our medical team will reach out to arrange delivery or collection.",
                         Type = "BloodRequest",
                         Status = "Unread",
                         SentAt = VietnamDateTimeProvider.Now
@@ -1054,6 +1087,22 @@ namespace SWD_BLDONATION.Controllers
                     };
                     _context.RequestMatches.Add(match);
                 }
+
+                if (bloodRequest.UserId.HasValue)
+                {
+                    var message = $"Your blood request is being processed.\nCurrently, we do not have a suitable blood unit available in the storage. However, the system has found {potentialDonations.Count} matching donors, and invitations have been sent to them.\nWe are now waiting for a donor to arrive at the center for confirmation and procedures.\nYou will be notified as soon as someone confirms.\nThank you for your patience!";
+
+                    var matchingNotification = new Notification
+                    {
+                        UserId = bloodRequest.UserId.Value,
+                        Message = message,
+                        Type = "BloodRequest",
+                        Status = "Unread",
+                        SentAt = VietnamDateTimeProvider.Now
+                    };
+                    _context.Notifications.Add(matchingNotification);
+                }
+
                 _logger.LogInformation("🧪 Created {Count} donation request matches for blood request id={Id}", potentialDonations.Count, bloodRequest.BloodRequestId);
             }
             else

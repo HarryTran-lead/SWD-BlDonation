@@ -223,7 +223,7 @@ namespace SWD_BLDONATION.Services
                     {
                         Console.WriteLine("Inventory: " + inventory.InventoryId);
                         inventory.Quantity += remainingQuantity;
-                        inventory.LastUpdated = DateTime.UtcNow;
+                        inventory.LastUpdated = VietnamDateTimeProvider.Now;
                         context.Entry(inventory).State = EntityState.Modified;
                         _logger.LogInformation("Updated inventory for blood type={BloodTypeId}, component={BloodComponentId}, added quantity={Quantity}",
                             donation.BloodTypeId, donation.BloodComponentId, remainingQuantity);

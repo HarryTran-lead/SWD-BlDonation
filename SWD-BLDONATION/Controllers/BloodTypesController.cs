@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SWD_BLDONATION.DTOs;
 using SWD_BLDONATION.DTOs.BloodTypeDTOs;
@@ -22,6 +23,7 @@ namespace SWD_BLDONATION.Controllers
 
         // GET: api/BloodTypes
         [HttpGet]
+        [Authorize(Roles = "Admin,Staff,User")]
         public async Task<ActionResult<IEnumerable<BloodTypeDto>>> GetBloodTypes()
         {
             var bloodTypes = await _context.BloodTypes
@@ -38,6 +40,7 @@ namespace SWD_BLDONATION.Controllers
 
         // GET: api/BloodTypes/5
         [HttpGet("{id}")]
+        [Authorize(Roles = "Admin,Staff,User")]
         public async Task<ActionResult<BloodTypeDto>> GetBloodType(int id)
         {
             var bloodType = await _context.BloodTypes
@@ -58,6 +61,7 @@ namespace SWD_BLDONATION.Controllers
 
         // PUT: api/BloodTypes/5
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> PutBloodType(int id, [FromForm] UpdateBloodTypeDto dto)
         {
             var bloodType = await _context.BloodTypes.FindAsync(id);
@@ -84,6 +88,7 @@ namespace SWD_BLDONATION.Controllers
 
         // POST: api/BloodTypes
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<BloodTypeDto>> PostBloodType([FromForm] CreateBloodTypeDto dto)
         {
             var bloodType = new BloodType
@@ -107,6 +112,7 @@ namespace SWD_BLDONATION.Controllers
 
         // DELETE: api/BloodTypes/5
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteBloodType(int id)
         {
             var bloodType = await _context.BloodTypes.FindAsync(id);

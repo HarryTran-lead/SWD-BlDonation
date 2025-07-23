@@ -8,6 +8,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using SWD_BLDONATION.DTOs.NotificationDTOs;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace SWD_BLDONATION.Controllers
 {
@@ -27,25 +29,44 @@ namespace SWD_BLDONATION.Controllers
         }
 
         // GET: api/Notifications/user/{userId}
-        [HttpGet("user/{userId}")]
+        [HttpGet("user")]
+        [Authorize(Roles = "Admin,Staff,User")]
         public async Task<ActionResult<object>> GetNotificationsByUser(
-            int userId,
-            [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 10,
-            [FromQuery] string? status = null)
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 10,
+    [FromQuery] string? status = null)
         {
-            if (userId < 1 || page < 1 || pageSize < 1)
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (userIdClaim == null || !int.TryParse(userIdClaim, out var userId))
             {
-                _logger.LogWarning("Invalid parameters: userId={UserId}, page={Page}, pageSize={PageSize}", userId, page, pageSize);
-                return BadRequest(new { Message = "Invalid userId, page, or pageSize." });
+                _logger.LogWarning("Unauthorized access - cannot get user ID from token.");
+                return Unauthorized(new { Message = "Invalid or missing user ID in token." });
             }
 
-            var query = _context.Notifications
-                .Where(n => n.UserId == userId)
-                .Include(n => n.User)
-                .AsQueryable();
+            if (page < 1 || pageSize < 1)
+            {
+                _logger.LogWarning("Invalid paging params: page={Page}, pageSize={PageSize}", page, pageSize);
+                return BadRequest(new { Message = "Invalid page or pageSize." });
+            }
 
-            // Apply status filter
+            IQueryable<Notification> query;
+
+            if (role == "User")
+            {
+                query = _context.Notifications
+                    .Where(n => n.UserId == userId)
+                    .Include(n => n.User)
+                    .AsQueryable();
+            }
+            else
+            {
+                query = _context.Notifications
+                    .Include(n => n.User)
+                    .AsQueryable();
+            }
+
             if (!string.IsNullOrWhiteSpace(status))
             {
                 var normalizedStatus = status.Trim().ToLowerInvariant();
@@ -55,7 +76,7 @@ namespace SWD_BLDONATION.Controllers
                 }
                 else
                 {
-                    _logger.LogWarning("Invalid status filter: status={Status}", status);
+                    _logger.LogWarning("Invalid status: {Status}", status);
                     return BadRequest(new { Message = "Invalid status value. Use 'read' or 'unread'." });
                 }
             }
@@ -79,7 +100,7 @@ namespace SWD_BLDONATION.Controllers
                 SentAt = n.SentAt
             }).ToList();
 
-            _logger.LogInformation("Retrieved {Count} notifications for userId={UserId}", notificationDtos.Count, userId);
+            _logger.LogInformation("User {UserId} ({Role}) retrieved {Count} notifications", userId, role, notificationDtos.Count);
 
             return Ok(new
             {
@@ -91,8 +112,10 @@ namespace SWD_BLDONATION.Controllers
             });
         }
 
+
         // PATCH: api/Notifications/{id}/status
         [HttpPatch("{id}/status")]
+        [Authorize(Roles = "Admin,Staff,User")]
         public async Task<IActionResult> UpdateNotificationStatus(int id, [FromBody] UpdateNotificationStatusDto dto)
         {
             _logger.LogInformation("UpdateNotificationStatus called with id={Id}, status={Status}", id, dto.Status);
@@ -130,6 +153,7 @@ namespace SWD_BLDONATION.Controllers
         }
 
         [HttpPatch("bulk-status")]
+        [Authorize(Roles = "Admin,Staff,User")]
         public async Task<IActionResult> UpdateBulkNotificationStatus([FromBody] UpdateBulkNotificationStatusDto dto)
         {
             _logger.LogInformation("UpdateBulkNotificationStatus called with notificationIds={NotificationIds}, userId={UserId}",
@@ -188,6 +212,7 @@ namespace SWD_BLDONATION.Controllers
 
         // DELETE: api/Notifications/{id}
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin,Staff")]
         public async Task<IActionResult> DeleteNotification(int id)
         {
             _logger.LogInformation("DeleteNotification called with id={Id}", id);
@@ -208,6 +233,7 @@ namespace SWD_BLDONATION.Controllers
 
         // POST: api/Notifications
         [HttpPost]
+        [Authorize(Roles = "Admin,Staff")]
         public async Task<ActionResult<NotificationDto>> CreateNotification([FromBody] CreateNotificationDto createDto)
         {
             _logger.LogInformation("CreateNotification called for userId={UserId}", createDto.UserId);

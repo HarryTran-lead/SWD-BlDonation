@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SWD_BLDONATION.DTOs;
@@ -30,6 +31,7 @@ namespace SWD_BLDONATION.Controllers
 
         // GET: api/BlogPosts
         [HttpGet]
+        [Authorize(Roles = "Admin,Staff,User")]
         public async Task<ActionResult<object>> GetBlogPosts([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             if (page < 1 || pageSize < 1)
@@ -77,6 +79,7 @@ namespace SWD_BLDONATION.Controllers
 
         // GET: api/BlogPosts/5
         [HttpGet("{id}")]
+        [Authorize(Roles = "Admin,Staff,User")]
         public async Task<ActionResult<object>> GetBlogPost(int id)
         {
             var post = await _context.BlogPosts
@@ -107,6 +110,7 @@ namespace SWD_BLDONATION.Controllers
 
         // GET: api/BlogPosts/search
         [HttpGet("search")]
+        [Authorize(Roles = "Admin,Staff,User")]
         public async Task<ActionResult<object>> SearchBlogPosts([FromQuery] BlogPostSearchQueryDto query)
         {
             if (query.Page < 1 || query.PageSize < 1)
@@ -160,6 +164,7 @@ namespace SWD_BLDONATION.Controllers
 
         // POST: api/BlogPosts
         [HttpPost]
+        [Authorize(Roles = "Admin,Staff")]
         public async Task<ActionResult<object>> CreatePost([FromForm] CreateBlogPostDto dto)
         {
             if (!ModelState.IsValid)
@@ -230,6 +235,7 @@ namespace SWD_BLDONATION.Controllers
 
         // PUT: api/BlogPosts/5
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin,Staff")]
         public async Task<IActionResult> UpdatePost(int id, [FromForm] UpdateBlogPostDto dto)
         {
             if (!ModelState.IsValid)
@@ -297,6 +303,8 @@ namespace SWD_BLDONATION.Controllers
 
         // DELETE: api/BlogPosts/5
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
+
         public async Task<IActionResult> DeleteBlogPost(int id)
         {
             var blogPost = await _context.BlogPosts.FindAsync(id);
