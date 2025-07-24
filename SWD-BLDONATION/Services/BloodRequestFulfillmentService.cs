@@ -200,9 +200,10 @@ namespace SWD_BLDONATION.Services
                     int remainingQuantity = donation.Quantity.Value;
 
                     var inventory = await context.BloodInventories
-                        .FirstOrDefaultAsync(inv =>
-                            inv.BloodTypeId == donation.BloodTypeId &&
-                            inv.BloodComponentId == donation.BloodComponentId);
+                 .FirstOrDefaultAsync(inv =>
+                     inv.BloodTypeId == donation.BloodTypeId &&
+                     inv.BloodComponentId == donation.BloodComponentId &&
+                     inv.InventoryLocation == donation.Location);
                     if (inventory == null)
                     {
                         inventory = new BloodInventory
@@ -212,7 +213,7 @@ namespace SWD_BLDONATION.Services
                             Quantity = remainingQuantity,
                             Unit = "ml",
                             LastUpdated = VietnamDateTimeProvider.Now,
-                            InventoryLocation = "Default Location"
+                            InventoryLocation = donation.Location
                         };
                         context.BloodInventories.Add(inventory);
                         await context.SaveChangesAsync();

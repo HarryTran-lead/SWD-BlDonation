@@ -639,7 +639,7 @@ namespace SWD_BLDONATION.Controllers
 
         // GET: api/BloodRequests/ByUser/search/{userId}
         [HttpGet("ByUser/search/{userId}")]
-        [Authorize(Roles = "Admin,Staff")]
+        [Authorize(Roles = "Admin,Staff,User")]
         public async Task<ActionResult<object>> SearchBloodRequestsByUser(
             int userId,
             [FromQuery] int page = 1,
